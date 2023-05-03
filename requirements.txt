@@ -1,0 +1,4 @@
+adbutils==1.2.9
+av==10.0.0
+numpy==1.24.3
+opencv_python_headless==4.7.0.72
