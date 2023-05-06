@@ -1,6 +1,6 @@
 # Pokémon GO PVP Battle Assistant
 
-This repository contains a Python script that assists players during Pokémon GO PVP battles. The script uses Pokémon and league-specific information from JSON files to display the move-set for each Pokémon, based on the recommended move-set from the PvPoke database. It also provides move counts and recommendations for move timings to help players avoid throwing moves on alignment.
+(Work In Progress) This repository contains a Python script that assists players during Pokémon GO PVP battles. The script uses Pokémon and league-specific information from JSON files to display the move-set for each Pokémon, based on the recommended move-set from the PvPoke database. It also provides move counts and recommendations for move timings to help players avoid throwing moves on alignment.
 
 # Features
 * Automatic league detection (Great, Ultra, or Master) based on the Pokémon's CP
@@ -8,12 +8,15 @@ This repository contains a Python script that assists players during Pokémon GO
 * Calculates the best move timing to avoid throwing on alignment and giving opponent free turns
 
 # To-Do
+* Currently the ROI for detecting CP and Pokémon is hard coded. Need to automate finding the location to make it work with any phone / resolution
 * Add memory and display all opponent Pokémon seen so far
-* Implement CV/ML (YOLO) to detect Pokemon and actual move-sets from in-game animations
-* Keep track of actual energy each Pokemon has during battle
+* Implement CV/ML (YOLO) to detect Pokémon and actual move-sets from in-game animations
+* Keep track of actual energy each Pokémon has during battle
 
 
 # Installation
+NOTE: Only works for Android devices. Connect your phone to your computer and allow for USB Debugging in your Developer Settings:
+
 1. Clone the repo: 
 ```
 git clone git@github.com:basemprince/pogo-bot.git
@@ -23,7 +26,11 @@ git clone git@github.com:basemprince/pogo-bot.git
 cd pogo-bot
 pip install -r requirements.txt
 ```
-3. Run the main script:
+4. In main.py, you need to edit the phone variable to add the name of your phone, and find the correct roi_adjust values that matches your phone resolution to put the roi on the correct location as shown in picture below. This will be a trial and error
+```
+python main.py
+```
+5. Run the main script:
 ```
 python main.py
 ```
