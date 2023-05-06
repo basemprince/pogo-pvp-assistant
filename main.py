@@ -1,17 +1,14 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import cv2
 import numpy as np
 import time
-from Quartz import CGWindowListCopyWindowInfo, kCGWindowListOptionOnScreenOnly, kCGWindowListExcludeDesktopElements, kCGNullWindowID
-from mss import mss
 # import matplotlib.pyplot as plt
 # %matplotlib inline
-from AppKit import NSWindow, NSTitledWindowMask
 import json
 from difflib import get_close_matches
 import re
@@ -30,7 +27,7 @@ from PIL import Image
 import os
 
 
-# In[ ]:
+# In[2]:
 
 
 phones = ['Pixel 3 XL', 'Pixel 7 Pro']
@@ -64,7 +61,7 @@ for index, row in df.iterrows():
 df
 
 
-# In[ ]:
+# In[3]:
 
 
 adb.connect("127.0.0.1:5037")
@@ -74,51 +71,8 @@ print(client.device_name)
 phone_t = phones.index(client.device_name)
 
 
-# In[ ]:
+# In[4]:
 
-
-# Find the scrcpy window
-def find_scrcpy_window(owner_name):
-    window_info_list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID)
-    for window_info in window_info_list:
-        window_owner_name = window_info.get('kCGWindowName', '')
-        for i,owner in enumerate(owner_name):
-            if owner in window_owner_name:
-                print(f'Using phone:{owner}')
-                return window_info,i
-    return None,0
-
-# Capture the scrcpy window
-def capture_scrcpy_window(window, title_bar_height):
-    x = window['kCGWindowBounds']['X']
-    y = window['kCGWindowBounds']['Y']
-    width = window['kCGWindowBounds']['Width']
-    height = window['kCGWindowBounds']['Height']
-    header_height = title_bar_height  # Height of the window header on macOS
-
-    with mss() as sct:
-        monitor = {'left': int(x), 'top': int(y) + header_height, 'width': int(width), 'height': int(height) - header_height}
-        screenshot = sct.grab(monitor)
-        screenshot_np = np.array(screenshot)
-
-    return screenshot_np
-
-def get_title_bar_height():
-    window = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
-        ((0, 0), (100, 100)),
-        NSTitledWindowMask,
-        2,
-        False
-    )
-    content_height = window.contentView().frame().size.height
-    window_height = window.frame().size.height
-    title_bar_height = window_height - content_height
-    return title_bar_height
-
-def crop_top(image, ratio):
-    height, _, _ = image.shape
-    cropped_height = int(height * ratio)
-    return image[:cropped_height, :, :]
 
 # Function to find the closest Pokémon name
 def closest_pokemon_name(name, names_list):
@@ -180,18 +134,14 @@ def mse(image1, image2):
     return error
 
 
-# In[ ]:
+# In[5]:
 
 
-scrcpy_window,phone = find_scrcpy_window(phones)
-roi_adjust = [[23,175,415],[15,150,390]]
-roi_adjust2 =[[50,370,860],[50,350,860]]
-roi_adjust = roi_adjust[phone]
-roi_adjust2 = roi_adjust2[phone_t]
+roi_adjust =[[50,370,860],[50,350,860]]
+roi_adjust = roi_adjust[phone_t]
 roi_dim = [530,50]
-my_roi = (roi_adjust2[0], roi_adjust2[1], roi_dim[0], roi_dim[1])
-opp_roi = (roi_adjust2[2], roi_adjust2[1], roi_dim[0], roi_dim[1])
-title_bar_height = get_title_bar_height()
+my_roi = (roi_adjust[0], roi_adjust[1], roi_dim[0], roi_dim[1])
+opp_roi = (roi_adjust[2], roi_adjust[1], roi_dim[0], roi_dim[1])
 # Load the template images in color format
 my_pokemon_template_color = cv2.imread('templates/my-temp2.png')
 opp_pokemon_template_color = cv2.imread('templates/opp-temp2.png')
