@@ -8,12 +8,12 @@
 * Calculates the best move timing to avoid throwing on alignment and giving opponent free turns
 
 # To-Do
-* Currently the ROI for detecting CP and Pokémon is hard coded. Need to automate finding the location to make it work with any phone / resolution
+* Automate finding the ROI location for Pokémon information to make it work with any phone / resolution
 * Add a way for user to specify the league in the UI (currently not able to work with custom leagues)
-* Add memory and display all opponent Pokémon seen so far
+* <del> Add memory and display all opponent Pokémon seen so far
 * Implement CV/ML (YOLO) to detect Pokémon and actual move-sets from in-game animations
 * Keep track of actual energy each Pokémon has during battle
-* (if possible) Auto update json files from PvPoke
+* <del> Auto update json files from PvPoke
 
 
 # Installation
@@ -35,5 +35,6 @@ pip install -r requirements.txt
 python main.py
 ```
 Now, the pogo-bot should show up in a new window as shown:
-![App UI Screenshot](templates/app-ui.png "App UI")
-
+<p align="center">
+<img src="templates/app-ui.png" width="400">
+</p>
