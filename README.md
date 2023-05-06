@@ -9,9 +9,11 @@
 
 # To-Do
 * Currently the ROI for detecting CP and Pokémon is hard coded. Need to automate finding the location to make it work with any phone / resolution
+* Add a way for user to specify the league in the UI (currently not able to work with custom leagues)
 * Add memory and display all opponent Pokémon seen so far
 * Implement CV/ML (YOLO) to detect Pokémon and actual move-sets from in-game animations
 * Keep track of actual energy each Pokémon has during battle
+* (if possible) Auto update json files from PvPoke
 
 
 # Installation
@@ -27,9 +29,7 @@ cd pogo-bot
 pip install -r requirements.txt
 ```
 4. In main.py, you need to edit the phone variable to add the name of your phone, and find the correct roi_adjust values that matches your phone resolution to put the roi on the correct location as shown in picture below. This will be a trial and error
-```
-python main.py
-```
+
 5. Run the main script:
 ```
 python main.py
