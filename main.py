@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import cv2
@@ -22,14 +22,15 @@ import scrcpy.core as scrcpy
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
 from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, Qt
 import pandas as pd
 import io
 from tesserocr import PyTessBaseAPI, PSM
 from PIL import Image
+import os
 
 
-# In[2]:
+# In[ ]:
 
 
 phones = ['Pixel 3 XL', 'Pixel 7 Pro']
@@ -37,12 +38,6 @@ phones = ['Pixel 3 XL', 'Pixel 7 Pro']
 with open('json_files/pk.json', 'r') as file:
     pokemon_names = json.load(file)
 
-# with open('json_files/great-league.json', 'r') as file:
-#     great_league = json.load(file)
-# with open('json_files/ultra-league.json', 'r') as file:
-#     ultra_league = json.load(file)
-# with open('json_files/master-league.json', 'r') as file:
-#     master_league = json.load(file)    
 with open('json_files/moves.json', 'r') as file:
     moves = json.load(file)
 
@@ -69,7 +64,7 @@ for index, row in df.iterrows():
 df
 
 
-# In[3]:
+# In[ ]:
 
 
 adb.connect("127.0.0.1:5037")
@@ -79,7 +74,7 @@ print(client.device_name)
 phone_t = phones.index(client.device_name)
 
 
-# In[4]:
+# In[ ]:
 
 
 # Find the scrcpy window
@@ -185,7 +180,7 @@ def mse(image1, image2):
     return error
 
 
-# In[5]:
+# In[ ]:
 
 
 scrcpy_window,phone = find_scrcpy_window(phones)
@@ -207,7 +202,7 @@ my_pokemon_template = cv2.cvtColor(my_pokemon_template_color, cv2.COLOR_BGR2GRAY
 opp_pokemon_template = cv2.cvtColor(opp_pokemon_template_color, cv2.COLOR_BGR2GRAY)
 
 
-# In[6]:
+# In[ ]:
 
 
 prev_my_roi_img = np.array([])
@@ -216,15 +211,16 @@ prev_corrected_my_name = None
 prev_corrected_opp_name = None
 threshold = 500 
 print_out = False
-update_timer = 0
+display_img = True
+update_timer = 500
 league = None
 def update_ui():
     global my_pokemon_label, opp_pokemon_label, my_moveset_label, opp_moveset_label, screenshot_label, correct_alignment
     global prev_my_roi_img, prev_opp_roi_img,corrected_my_name , corrected_opp_name, my_fast_move_turns, opp_fast_move_turns
     global prev_corrected_my_name, prev_corrected_opp_name, league, league_pok
-    part1_start_time = time.time()
+
     screen = client.last_frame
-    part1_end_time = time.time()
+    time_start = time.time()
     if screen is not None:
         my_roi_img = screen[my_roi[1]:my_roi[1] + my_roi[3], my_roi[0]:my_roi[0] + my_roi[2]]
         opp_roi_img = screen[opp_roi[1]:opp_roi[1] + opp_roi[3], opp_roi[0]:opp_roi[0] + opp_roi[2]]
@@ -258,8 +254,6 @@ def update_ui():
                 api.SetImage(thresh_opp_roi)
                 api.Recognize()
                 opp_info = api.GetUTF8Text()
-
-            part2_end_time = time.time()
 
             # Display the extracted Pokémon name and CP value
             if print_out:
@@ -297,16 +291,29 @@ def update_ui():
                     print("Could not determine league")    
 
             # Extract Pokémon names using regex
-            my_info_match = re.search(r'[A-Z][a-z]+', my_info)
-            opp_info_match = re.search(r'[A-Z][a-z]+', opp_info)
+            my_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', my_info)
+            opp_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', opp_info)
 
-            part3_end_time = time.time()
             if my_info_match and opp_info_match and league is not None:
+
                 my_info_name = my_info_match.group(0)
                 opp_info_name = opp_info_match.group(0)
 
                 temp_corrected_my_name = closest_pokemon_name(my_info_name, pokemon_names)
                 temp_corrected_opp_name = closest_pokemon_name(opp_info_name, pokemon_names)
+
+                # Check if either Pokémon is Giratina and change form based on the league
+                if temp_corrected_my_name == "Giratina":
+                    if league in ["great-league", "ultra-league"]:
+                        temp_corrected_my_name = "Giratina (Altered)"
+                    else:
+                        temp_corrected_my_name = "Giratina (Origin)"
+
+                if temp_corrected_opp_name == "Giratina":
+                    if league in ["great-league", "ultra-league"]:
+                        temp_corrected_opp_name = "Giratina (Altered)"
+                    else:
+                        temp_corrected_opp_name = "Giratina (Origin)"
 
                 if temp_corrected_my_name:
                     corrected_my_name = temp_corrected_my_name
@@ -359,10 +366,8 @@ def update_ui():
                         print("Error getting my moveset.")
 
         else:
-            part2_end_time = time.time()
-            part3_end_time = time.time()
             if print_out:
-                print('triggered')
+                print('No change')
 
         # Draw rectangles around the ROI
         roi_color = (0, 255, 0)  
@@ -387,31 +392,25 @@ def update_ui():
                 correct_count = "Unknown"
             correct_alignment.setText(f"Correct Alignemnt: {correct_count}")
         # Resize the image and fix the colors
-        scale_percent = 10
-        width = int(screen_with_rois.shape[1] * scale_percent / 100)
-        height = int(screen_with_rois.shape[0] * scale_percent / 100)
-        dim = (width, height)
-        resized_image = cv2.resize(screen_with_rois, dim, interpolation=cv2.INTER_AREA)
-        resized_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
-        part4_end_time = time.time()
 
-        part1_duration = part1_end_time - part1_start_time
-        part2_duration = part2_end_time - part1_end_time
-        part3_duration = part3_end_time - part2_end_time
-        part4_duration = part4_end_time - part3_end_time
-        if print_out:
-            print(f"Time taken for part 1: {part1_duration:.3f} seconds")
-            print(f"Time taken for part 2: {part2_duration:.3f} seconds")
-            print(f"Time taken for part 3: {part3_duration:.3f} seconds")
-            print(f"Time taken for part 3: {part4_duration:.3f} seconds")
+        if display_img:
+            scale_percent = 10
+            width = int(screen_with_rois.shape[1] * scale_percent / 100)
+            height = int(screen_with_rois.shape[0] * scale_percent / 100)
+            dim = (width, height)
+            resized_image = cv2.resize(screen_with_rois, dim, interpolation=cv2.INTER_AREA)
+            resized_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
+
             # clear_output(wait=True)
-        # Update the screenshot display
-        height, width, channel = resized_image.shape
-        bytes_per_line = channel * width
-        qimage = QImage(resized_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(qimage)
-        screenshot_label.setPixmap(pixmap)
-        
+            # Update the screenshot display
+            height, width, channel = resized_image.shape
+            bytes_per_line = channel * width
+            qimage = QImage(resized_image.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            pixmap = QPixmap.fromImage(qimage)
+            screenshot_label.setPixmap(pixmap)
+
+    time_elapsed = time.time() - time_start
+    timer_label.setText(f"elapsed Time: {round(time_elapsed,2):0.3f}")
     # Schedule the next update
     QTimer.singleShot(update_timer, update_ui)
 
@@ -436,9 +435,12 @@ layout.addWidget(my_pokemon_label)
 my_moveset_label = QLabel()
 layout.addWidget(my_moveset_label)
 
-screenshot_label = QLabel()
-layout.addWidget(screenshot_label)
+timer_label = QLabel()
+layout.addWidget(timer_label, alignment=Qt.AlignRight) 
 
+if display_img:
+    screenshot_label = QLabel()
+    layout.addWidget(screenshot_label)
 
 # Add the Exit button and its signal connection
 # exit_button = QPushButton("Exit")
@@ -451,8 +453,5 @@ window.show()
 # Start the update loop
 QTimer.singleShot(update_timer, update_ui)
 
-try:
-    app.exec_()
-except SystemExit as e:
-    print(f"Application exited with code {e.code}")
+app.exec_()
 
