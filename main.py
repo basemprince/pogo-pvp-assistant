@@ -25,6 +25,7 @@ import io
 from tesserocr import PyTessBaseAPI, PSM
 from PIL import Image
 import os
+import requests
 
 
 # In[2]:
@@ -64,6 +65,47 @@ df
 # In[3]:
 
 
+update_json_files = False
+if update_json_files:
+    repo_owner = 'pvpoke'
+    repo_name = 'pvpoke'
+    folder_path = 'src/data/rankings/all/overall/'
+    destination_directory = 'json_files'
+
+    headers = {'Accept': 'application/vnd.github+json'}
+    url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{folder_path}'
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        files = response.json()
+        for file in files:
+            if file['type'] == 'file' and file['name'].endswith('.json'):
+                download_url = file['download_url']
+                file_name = file['name']
+                
+                if file_name == 'rankings-1500.json':
+                    new_file_name = 'great-league.json'
+                elif file_name == 'rankings-2500.json':
+                    new_file_name = 'ultra-league.json'
+                elif file_name == 'rankings-10000.json':
+                    new_file_name = 'master-league.json'
+                else:
+                    new_file_name = file_name
+
+                local_path = os.path.join(destination_directory, new_file_name)
+
+                file_content = requests.get(download_url).content
+                with open(local_path, 'wb') as f:
+                    f.write(file_content)
+                    print(f"Downloaded {local_path}")
+
+else:
+    print(f"Failed to get folder content")
+
+
+# In[4]:
+
+
 adb.connect("127.0.0.1:5037")
 client = scrcpy.Client(device=adb.device_list()[0])
 client.start(threaded=True)
@@ -71,7 +113,7 @@ print(client.device_name)
 phone_t = phones.index(client.device_name)
 
 
-# In[4]:
+# In[5]:
 
 
 # Function to find the closest Pokémon name
@@ -88,9 +130,6 @@ def calculate_move_counts(fast_move, charged_move):
     counts.append(math.ceil((charged_move['energy'] * 3) / fast_move['energyGain']) - counts[0] - counts[1])
 
     return counts
-
-def turn_alignment(my_fast,opp_fast):
-    pass
 
 def get_moveset_and_counts(pokemon_name, pokemon_data, move_data):
     moveset = None
@@ -134,7 +173,7 @@ def mse(image1, image2):
     return error
 
 
-# In[5]:
+# In[6]:
 
 
 roi_adjust =[[50,370,860],[50,350,860]]
@@ -152,7 +191,7 @@ my_pokemon_template = cv2.cvtColor(my_pokemon_template_color, cv2.COLOR_BGR2GRAY
 opp_pokemon_template = cv2.cvtColor(opp_pokemon_template_color, cv2.COLOR_BGR2GRAY)
 
 
-# In[ ]:
+# In[7]:
 
 
 prev_my_roi_img = np.array([])
@@ -162,12 +201,18 @@ prev_corrected_opp_name = None
 threshold = 500 
 print_out = False
 display_img = True
-update_timer = 500
+update_timer = 1
 league = None
+opp_pokemon_memory = []
+switch_out_time = None
+switch_out_countdown = None
+opp_switch_timer_label = None
+
 def update_ui():
     global my_pokemon_label, opp_pokemon_label, my_moveset_label, opp_moveset_label, screenshot_label, correct_alignment
     global prev_my_roi_img, prev_opp_roi_img,corrected_my_name , corrected_opp_name, my_fast_move_turns, opp_fast_move_turns
     global prev_corrected_my_name, prev_corrected_opp_name, league, league_pok
+    global switch_out_time, switch_out_countdown, opp_pokemon_memory, opp_switch_timer_label
 
     screen = client.last_frame
     time_start = time.time()
@@ -238,7 +283,8 @@ def update_ui():
                     except FileNotFoundError:
                         print(f"Failed to load {league} JSON data")
                 else:
-                    print("Could not determine league")    
+                    if print_out:
+                        print("Could not determine league")    
 
             # Extract Pokémon names using regex
             my_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', my_info)
@@ -276,6 +322,12 @@ def update_ui():
                 if temp_corrected_opp_name:
                     corrected_opp_name = temp_corrected_opp_name
                     prev_corrected_opp_name = corrected_opp_name
+                    if not opp_pokemon_memory or corrected_opp_name != opp_pokemon_memory[-1]:
+                        if len(opp_pokemon_memory) >= 3:
+                            opp_pokemon_memory.pop(0)
+                        opp_pokemon_memory.append(corrected_opp_name)
+                        switch_out_time = time.time()
+                        last_three_pokemon_label.setText(f"Last Three Opponent Pokémon:{', '.join(reversed(opp_pokemon_memory))}")
                 else:
                     corrected_opp_name = prev_corrected_opp_name
                     if print_out:
@@ -301,6 +353,12 @@ def update_ui():
                     opp_moveset_label.setText("Opponent Moveset: Error")
                     if print_out:
                         print("Error getting opponent moveset.")
+                # print(corrected_opp_name, opp_pokemon_memory[-1])
+                # if len(opp_pokemon_memory)>1 and corrected_opp_name != opp_pokemon_memory[-2] and switch_out_time is None:
+                #     print('triggered')
+                #     switch_out_time = time.time()
+
+
 
             if corrected_my_name:
                 my_move_counts, my_fast_move_turns = get_moveset_and_counts(corrected_my_name, league_pok, moves)
@@ -318,6 +376,13 @@ def update_ui():
         else:
             if print_out:
                 print('No change')
+
+        if switch_out_time is not None:
+            switch_out_countdown = 60 - int(time.time() - switch_out_time)
+            if switch_out_countdown <= 0:
+                switch_out_time = None
+                switch_out_countdown = 0
+            opp_switch_timer_label.setText(f"Switch Timer: {switch_out_countdown}")
 
         # Draw rectangles around the ROI
         roi_color = (0, 255, 0)  
@@ -360,7 +425,7 @@ def update_ui():
             screenshot_label.setPixmap(pixmap)
 
     time_elapsed = time.time() - time_start
-    timer_label.setText(f"elapsed Time: {round(time_elapsed,2):0.3f}")
+    # timer_label.setText(f"elapsed Time: {round(time_elapsed,2):0.3f}")
     # Schedule the next update
     QTimer.singleShot(update_timer, update_ui)
 
@@ -379,14 +444,21 @@ layout.addWidget(opp_moveset_label)
 correct_alignment = QLabel()
 layout.addWidget(correct_alignment)
 
+opp_switch_timer_label = QLabel("Switch Timer: ")
+layout.addWidget(opp_switch_timer_label)
+
 my_pokemon_label = QLabel("My Pokémon:")
 layout.addWidget(my_pokemon_label)
 
 my_moveset_label = QLabel()
 layout.addWidget(my_moveset_label)
 
-timer_label = QLabel()
-layout.addWidget(timer_label, alignment=Qt.AlignRight) 
+
+# timer_label = QLabel()
+# layout.addWidget(timer_label, alignment=Qt.AlignRight) 
+
+last_three_pokemon_label = QLabel("Last Three Opponent Pokémon:")
+layout.addWidget(last_three_pokemon_label)
 
 if display_img:
     screenshot_label = QLabel()

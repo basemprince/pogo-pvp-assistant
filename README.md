@@ -3,9 +3,10 @@
 (Work In Progress) This repository contains a Python script that assists players during Pokémon GO PVP battles. The script uses Pokémon and league-specific information from JSON files to display the move-set for each Pokémon, based on the recommended move-set from the PvPoke database. It also provides move counts and recommendations for move timings to help players avoid throwing moves on alignment.
 
 # Features
-* Automatic league detection (Great, Ultra, or Master) based on the Pokémon's CP
+* Auto league detection (Great, Ultra, or Master) based on the Pokémon's CP
 * Displays the move-set suggested based on PvPoke recommendations and their counts
 * Calculates the best move timing to avoid throwing on alignment and giving opponent free turns
+* A counter for the opponent switch out timer
 
 # To-Do
 * Automate finding the ROI location for Pokémon information to make it work with any phone / resolution
@@ -14,6 +15,7 @@
 * Implement CV/ML (YOLO) to detect Pokémon and actual move-sets from in-game animations
 * Keep track of actual energy each Pokémon has during battle
 * <del> Auto update json files from PvPoke
+* <del> Add a count down from 60 seconds when the opponent switches Pokémon to know when they are no longer locked in
 
 
 # Installation
@@ -26,6 +28,7 @@ git clone git@github.com:basemprince/pogo-bot.git
 2. Navigate to the cloned repository and install the required Python packages:
 ```
 cd pogo-bot
+sudo apt-get install tesseract-ocr
 pip install -r requirements.txt
 ```
 4. In main.py, you need to edit the phone variable to add the name of your phone, and find the correct roi_adjust values that matches your phone resolution to put the roi on the correct location as shown in picture below. This will be a trial and error
