@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import cv2
@@ -28,7 +28,7 @@ import os
 import requests
 
 
-# In[2]:
+# In[ ]:
 
 
 phones = ['Pixel 3 XL', 'Pixel 7 Pro']
@@ -62,7 +62,7 @@ for index, row in df.iterrows():
 df
 
 
-# In[3]:
+# In[ ]:
 
 
 update_json_files = False
@@ -103,7 +103,7 @@ else:
     print(f"Failed to get folder content")
 
 
-# In[4]:
+# In[ ]:
 
 
 adb.connect("127.0.0.1:5037")
@@ -113,7 +113,7 @@ print(client.device_name)
 phone_t = phones.index(client.device_name)
 
 
-# In[5]:
+# In[ ]:
 
 
 # Function to find the closest Pokémon name
@@ -171,9 +171,16 @@ def mse(image1, image2):
     error = np.sum((image1.astype("float") - image2.astype("float")) ** 2)
     error /= float(image1.shape[0] * image1.shape[1])
     return error
+def clear_memory():
+    global opp_pokemon_memory, switch_out_time, switch_out_countdown
+    opp_pokemon_memory = []
+    last_three_pokemon_label.setText("Last Three Opponent Pokémon:")
+    switch_out_time = None
+    switch_out_countdown = 0
+    opp_switch_timer_label.setText(f"Switch Timer:")
 
 
-# In[6]:
+# In[ ]:
 
 
 roi_adjust =[[50,370,860],[50,350,860]]
@@ -191,7 +198,7 @@ my_pokemon_template = cv2.cvtColor(my_pokemon_template_color, cv2.COLOR_BGR2GRAY
 opp_pokemon_template = cv2.cvtColor(opp_pokemon_template_color, cv2.COLOR_BGR2GRAY)
 
 
-# In[7]:
+# In[ ]:
 
 
 prev_my_roi_img = np.array([])
@@ -460,9 +467,15 @@ layout.addWidget(my_moveset_label)
 last_three_pokemon_label = QLabel("Last Three Opponent Pokémon:")
 layout.addWidget(last_three_pokemon_label)
 
+
+clear_memory_button = QPushButton("Reset Memory")
+layout.addWidget(clear_memory_button)
+clear_memory_button.clicked.connect(clear_memory)
+
 if display_img:
     screenshot_label = QLabel()
     layout.addWidget(screenshot_label)
+
 
 # Add the Exit button and its signal connection
 # exit_button = QPushButton("Exit")
