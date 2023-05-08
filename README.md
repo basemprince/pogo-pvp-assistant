@@ -6,6 +6,7 @@
 * Auto league detection (Great, Ultra, or Master) based on the Pokémon's CP
 * Displays the move-set suggested based on PvPoke recommendations and their counts
 * Calculates the best move timing to avoid throwing on alignment and giving opponent free turns
+* Shows the last 3 opponent Pokémon seen 
 * A counter for the opponent switch out timer
 
 # To-Do
