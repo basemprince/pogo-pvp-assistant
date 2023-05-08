@@ -7,7 +7,7 @@
 * Displays the move-set suggested based on PvPoke recommendations and their counts
 * Calculates the best move timing to avoid throwing on alignment and giving opponent free turns
 * Shows the last 3 opponent Pokémon seen 
-* A counter for the opponent switch out timer
+* A counter for opponent switch cooldown
 
 # To-Do
 * Automate finding the ROI location for Pokémon information to make it work with any phone / resolution
