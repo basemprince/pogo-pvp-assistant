@@ -17,7 +17,10 @@
 * Keep track of actual energy each Pokémon has during battle
 * <del> Auto update json files from PvPoke
 * <del> Add a count down from 60 seconds when the opponent switches Pokémon to know when they are no longer locked in
-
+* Calculate and display which Pokémon wins CMP
+* Fix switch cool down bug when opponent pokemon faints
+* Try a non CV/dummy energy counter based on time elapsed (fast move energy gain/ cooldown, and the charge moves energy requiremnt)
+* Calculate percent of health cost inflected by each charge move on both Pokémon
 
 # Installation
 NOTE: Only works for Android devices. Connect your phone to your computer and allow for USB Debugging in your Developer Settings:
