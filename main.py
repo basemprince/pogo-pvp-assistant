@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import cv2
@@ -28,7 +28,7 @@ import os
 import requests
 
 
-# In[ ]:
+# In[2]:
 
 
 phones = ['Pixel 3 XL', 'Pixel 7 Pro']
@@ -62,7 +62,7 @@ for index, row in df.iterrows():
 df
 
 
-# In[ ]:
+# In[3]:
 
 
 update_json_files = False
@@ -103,7 +103,7 @@ else:
     print(f"Failed to get folder content")
 
 
-# In[ ]:
+# In[4]:
 
 
 adb.connect("127.0.0.1:5037")
@@ -113,7 +113,7 @@ print(client.device_name)
 phone_t = phones.index(client.device_name)
 
 
-# In[ ]:
+# In[5]:
 
 
 # Function to find the closest Pokémon name
@@ -179,8 +179,22 @@ def clear_memory():
     switch_out_countdown = 0
     opp_switch_timer_label.setText(f"Switch Timer:")
 
+def get_next_filename(directory):
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        
+    files = os.listdir(directory)
+    files = [f for f in files if f.endswith('.mp4')]
+    
+    if not files:
+        return os.path.join(directory, '1.mp4')
+    else:
+        nums = sorted([int(f.split('.')[0]) for f in files])
+        next_num = nums[-1] + 1
+        return os.path.join(directory, f'{next_num}.mp4')
 
-# In[ ]:
+
+# In[6]:
 
 
 roi_adjust =[[50,370,860],[50,350,860]]
@@ -198,7 +212,13 @@ my_pokemon_template = cv2.cvtColor(my_pokemon_template_color, cv2.COLOR_BGR2GRAY
 opp_pokemon_template = cv2.cvtColor(opp_pokemon_template_color, cv2.COLOR_BGR2GRAY)
 
 
-# In[ ]:
+# In[7]:
+
+
+client.resolution
+
+
+# In[8]:
 
 
 prev_my_roi_img = np.array([])
@@ -215,6 +235,14 @@ switch_out_time = None
 switch_out_countdown = None
 opp_switch_timer_label = None
 
+record_video = True
+
+if record_video:
+    filename = get_next_filename('videos')
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
+    resolution = (int(client.resolution[0]/2), int(client.resolution[1]/2))
+    out = cv2.VideoWriter(filename, fourcc, 60.0, resolution)
+
 def update_ui():
     global my_pokemon_label, opp_pokemon_label, my_moveset_label, opp_moveset_label, screenshot_label, correct_alignment
     global prev_my_roi_img, prev_opp_roi_img,corrected_my_name , corrected_opp_name, my_fast_move_turns, opp_fast_move_turns
@@ -222,8 +250,13 @@ def update_ui():
     global switch_out_time, switch_out_countdown, opp_pokemon_memory, opp_switch_timer_label
 
     screen = client.last_frame
+    # screen = cv2.imread('templates/screenshot.png')
+
     time_start = time.time()
     if screen is not None:
+        if record_video:
+            resized_frame = cv2.resize(screen, resolution)
+            out.write(resized_frame)
         my_roi_img = screen[my_roi[1]:my_roi[1] + my_roi[3], my_roi[0]:my_roi[0] + my_roi[2]]
         opp_roi_img = screen[opp_roi[1]:opp_roi[1] + opp_roi[3], opp_roi[0]:opp_roi[0] + opp_roi[2]]
 
@@ -460,10 +493,6 @@ layout.addWidget(my_pokemon_label)
 my_moveset_label = QLabel()
 layout.addWidget(my_moveset_label)
 
-
-# timer_label = QLabel()
-# layout.addWidget(timer_label, alignment=Qt.AlignRight) 
-
 last_three_pokemon_label = QLabel("Last Three Opponent Pokémon:")
 layout.addWidget(last_three_pokemon_label)
 
@@ -489,4 +518,8 @@ window.show()
 QTimer.singleShot(update_timer, update_ui)
 
 app.exec_()
+
+if record_video:
+    print('releasing video')
+    out.release()
 
