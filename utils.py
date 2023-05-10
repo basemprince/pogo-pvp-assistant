@@ -132,6 +132,43 @@ def get_moveset_and_counts(pokemon_name, pokemon_data, move_data):
 
     return move_counts , fast_count
 
+
+def get_moveset_and_counts_udpated(pokemon_name, pokemon_data, move_data):
+    moveset = None
+    for pokemon in pokemon_data:
+        if pokemon_name.lower() == pokemon['speciesName'].lower():
+            moveset = pokemon['moveset']
+            break
+
+    if moveset is None:
+        return None , 0
+
+    fast_move = moveset[0]
+    charged1 = moveset[1]
+    charged2 = moveset[2]
+
+    fast_move_data = None
+    for move in move_data:
+        if fast_move.lower() == move['moveId'].lower():
+            fast_move_data = move
+            break
+
+    if fast_move_data is None:
+        return None , 0
+
+    fast_count = round(fast_move_data['cooldown'] / 500)
+    move_counts = {
+        'fast_move': [fast_move, fast_count]
+    }
+    for charged_move_name, key in zip([charged1, charged2], ['charge_move1', 'charge_move2']):
+        for move in move_data:
+            if charged_move_name.lower() == move['moveId'].lower():
+                move_counts[key] = [charged_move_name, calculate_move_counts(fast_move_data, move)]
+                break
+
+    return move_counts , fast_count
+
+
 def mse(image1, image2):
     if image1.size == 0 or image2.size == 0:
         return float("inf")
