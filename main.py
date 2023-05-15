@@ -1,33 +1,23 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[4]:
+# In[ ]:
 
 
 import cv2
 import numpy as np
 import time
-# import matplotlib.pyplot as plt
-# %matplotlib inline
 import json
 import re
-import math
-from IPython.display import clear_output
-import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QPushButton
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtCore import QTimer, Qt
-import pandas as pd
 from tesserocr import PyTessBaseAPI, PSM
 from PIL import Image
-import os
 import utils
 import tkinter as tk
 import customtkinter as ctk
 import threading
 
 
-# In[5]:
+# In[ ]:
 
 
 # parameters
@@ -40,7 +30,7 @@ update_json_files = False
 phones = ['Pixel 3 XL', 'Pixel 7 Pro']
 
 
-# In[6]:
+# In[ ]:
 
 
 # Load the JSON files
@@ -51,12 +41,13 @@ alignment_df = utils.load_alignment_df()
 # update json files if prompted:
 if update_json_files:
     utils.update_json_files()
+    avail_cups = utils.download_current_cups()
 # connect to phone
 client = utils.connect_to_device("127.0.0.1:5037")
 phone_t = phones.index(client.device_name)
 
 
-# In[7]:
+# In[ ]:
 
 
 roi_adjust =[[50,370,860],[50,350,860]]
@@ -73,9 +64,22 @@ opp_pokemon_template_color = cv2.resize(opp_pokemon_template_color, (269, 77))
 my_pokemon_template = cv2.cvtColor(my_pokemon_template_color, cv2.COLOR_BGR2GRAY)
 opp_pokemon_template = cv2.cvtColor(opp_pokemon_template_color, cv2.COLOR_BGR2GRAY)
 feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
+cup_names_combo_box = ['choose league','Great League', 'Ultra League', 'Master League']
+if update_json_files:
+    for cup in avail_cups:
+        cup_names_combo_box.append(cup['title'])
+    for format in avail_cups:
+        title = format['title']
+        cup = format['cup']
+        category = 'overall'
+        league = format['cp']
+        utils.download_ranking_data(cup, category, league,title)
+else:
+    avail_cups = ['Master Premier','Little Cup','Sunshine Cup','Element Cup']
+    cup_names_combo_box.extend(avail_cups)
 
 
-# In[8]:
+# In[ ]:
 
 
 class PokemonFrame(ctk.CTkFrame):
@@ -100,7 +104,7 @@ class PokemonFrame(ctk.CTkFrame):
         self.configure(fg_color="transparent")
 
 class PokemonBattleAssistant(ctk.CTk):
-    def __init__(self,feed_res):
+    def __init__(self,feed_res,cup_names):
         super().__init__()
         self.title("Pokemon Battle Assistant")
         self.feed_res = feed_res
@@ -109,7 +113,7 @@ class PokemonBattleAssistant(ctk.CTk):
         mainframe.grid(column=0, row=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=30, pady=20)
 
         # Add the drop down menu
-        self.league_combobox = ctk.CTkComboBox(mainframe, values=['choose league','Great League', 'Ultra League', 'Master League'])
+        self.league_combobox = ctk.CTkComboBox(mainframe, values=cup_names)
         self.league_combobox.grid(column=0, row=0,sticky="W", padx=0, pady=10)
 
         opponent_frame = ctk.CTkLabel(mainframe, text="Opponent's Pokemon", text_color= 'gray', anchor="nw")
@@ -267,7 +271,8 @@ class PokemonBattleAssistant(ctk.CTk):
                     print("My Info:", my_info)
                     print("Opponent Info:", opp_info)
 
-                if self.league is None:
+                # for auto-detection if league not chosen
+                if self.league_combobox.get() == 'choose league':
                     # Extract CP values using regex
                     my_cp = re.search(r'\bCP\s+(\d+)\b', my_info)
                     opp_cp = re.search(r'\bCP\s+(\d+)\b', opp_info)
@@ -279,15 +284,17 @@ class PokemonBattleAssistant(ctk.CTk):
                         print(f"Opponent Pokémon CP: {opp_cp}")
                     if my_cp and opp_cp:
                         higher_cp = max(my_cp, opp_cp)
-                        if higher_cp <= 1500:
-                            self.league = "great-league"
+                        if higher_cp <= 500:
+                            self.league = "Little Cup"
+                        elif higher_cp <= 1500 > 500:
+                            self.league = "Great League"
                         elif 1500 < higher_cp <= 2500:
-                            self.league = "ultra-league"
+                            self.league = "Ultra League"
                         else:
-                            self.league = "master-league"
-
+                            self.league = "Master League"
+                        self.league_combobox.set(self.league)
                         print(f"League: {self.league}")
-                        self.league_pok = f"json_files/{self.league.lower()}.json"
+                        self.league_pok = f"json_files/rankings/{self.league}.json"
                         try:
                             with open(self.league_pok, 'r') as file:
                                 self.league_pok = json.load(file)
@@ -297,7 +304,18 @@ class PokemonBattleAssistant(ctk.CTk):
                     else:
                         if print_out:
                             print("Could not determine league")    
-
+               
+               # for manually choosing league from drop-down box
+                if self.league_combobox.get() != self.league and self.league_combobox.get() != 'choose league':
+                    self.league = self.league_combobox.get()
+                    self.league_pok = f"json_files/rankings/{self.league}.json"
+                    try:
+                        with open(self.league_pok, 'r') as file:
+                            self.league_pok = json.load(file)
+                            print(f"Loaded {self.league} JSON data")
+                    except FileNotFoundError:
+                        print(f"Failed to load {self.league} JSON data")
+                    
                 # Extract Pokémon names
                 my_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', my_info)
                 opp_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', opp_info)
@@ -459,7 +477,7 @@ class PokemonBattleAssistant(ctk.CTk):
         label.configure(text=new_value)
 
 if __name__ == "__main__":
-    app = PokemonBattleAssistant(feed_res)
+    app = PokemonBattleAssistant(feed_res,cup_names_combo_box)
     app.after(update_timer, lambda: app.update_ui(client)) 
     app.mainloop()
 

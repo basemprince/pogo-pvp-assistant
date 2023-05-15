@@ -58,11 +58,13 @@ def update_json_files():
                 file_name = file['name']
                 
                 if file_name == 'rankings-1500.json':
-                    new_file_name = 'great-league.json'
+                    new_file_name = 'Great League.json'
                 elif file_name == 'rankings-2500.json':
-                    new_file_name = 'ultra-league.json'
+                    new_file_name = 'Ultra League.json'
                 elif file_name == 'rankings-10000.json':
-                    new_file_name = 'master-league.json'
+                    new_file_name = 'Master League.json'
+                elif file_name == 'rankings-500.json':
+                    new_file_name = 'Little Cup.json'
                 else:
                     new_file_name = file_name
 
@@ -75,11 +77,33 @@ def update_json_files():
     else:
         print(f"Failed to get folder content")
 
-def update_format_select(formats):
-    visible_formats = [format for format in formats if format['showFormat'] and not format.get('hideRankings', False)]
-    return visible_formats
+def download_ranking_data(cup, category, league,title):
+    key = f"{cup}{category}{league}"
+    object_rankings = {}
+    repo_owner = 'pvpoke'
+    repo_name = 'pvpoke'
+    headers = {'Accept': 'application/vnd.github+json'}
+    if key not in object_rankings:
+        file_path = f"src/data/rankings/{cup}/{category}/rankings-{league}.json"
+        url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}'
 
-# Download file
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            file_info = response.json()
+            download_url = file_info['download_url']
+            file_content = requests.get(download_url).content
+            
+            local_path = os.path.join('json_files/rankings/', f'{title}.json')
+
+            with open(local_path, 'wb') as f:
+                f.write(file_content)
+                print(f"Downloaded {local_path}")
+        else:
+            print(f"Failed to get file content")
+
+def update_format_select(formats):
+    visible_formats = [format for format in formats if format['showFormat'] and not format.get('hideRankings', False) and 'Silph' not in format['title'] and format['title'] != 'Custom']
+    return visible_formats
 
 def download_current_cups():
     repo_owner = 'pvpoke'
@@ -102,8 +126,9 @@ def download_current_cups():
         with open(local_path, 'wb') as f:
             f.write(file_content)
             print(f"Downloaded {local_path}")
-
-    # Load JSON data
+    else:
+        return None
+    
     with open(local_path) as f:
         data = json.load(f)
 

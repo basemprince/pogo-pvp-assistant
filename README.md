@@ -8,10 +8,11 @@
 * Calculates the best move timing to avoid throwing on alignment and giving opponent free turns
 * Shows the last 3 opponent Pokémon seen 
 * A counter for opponent switch cooldown
+* Dropdown menu for currently avaialbe specific meta cups imported from PvPoke
 
 # To-Do
 * Automate finding the ROI location for Pokémon information to make it work with any phone / resolution
-* Add a way for user to specify the league in the UI (currently not able to work with custom leagues)
+* <del> Add a way for user to specify the league in the UI (currently not able to work with custom leagues)
 * <del> Add memory and display all opponent Pokémon seen so far
 * Implement CV/ML (YOLO) to detect Pokémon and actual move-sets from in-game animations
 * Keep track of actual energy each Pokémon has during battle
