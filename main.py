@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[4]:
 
 
 import cv2
@@ -27,7 +27,7 @@ import customtkinter as ctk
 import threading
 
 
-# In[2]:
+# In[5]:
 
 
 # parameters
@@ -40,7 +40,7 @@ update_json_files = False
 phones = ['Pixel 3 XL', 'Pixel 7 Pro']
 
 
-# In[3]:
+# In[6]:
 
 
 # Load the JSON files
@@ -56,7 +56,7 @@ client = utils.connect_to_device("127.0.0.1:5037")
 phone_t = phones.index(client.device_name)
 
 
-# In[4]:
+# In[7]:
 
 
 roi_adjust =[[50,370,860],[50,350,860]]
@@ -75,7 +75,7 @@ opp_pokemon_template = cv2.cvtColor(opp_pokemon_template_color, cv2.COLOR_BGR2GR
 feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
 
 
-# In[5]:
+# In[8]:
 
 
 class PokemonFrame(ctk.CTkFrame):
@@ -103,48 +103,53 @@ class PokemonBattleAssistant(ctk.CTk):
     def __init__(self,feed_res):
         super().__init__()
         self.title("Pokemon Battle Assistant")
-        
-        mainframe = ctk.CTkFrame(self)
-        mainframe.grid(column=0, row=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=30, pady=30)
+        self.feed_res = feed_res
 
-        opponent_frame = ctk.CTkLabel(mainframe, text="Opponent's Pokemon")
-        opponent_frame.grid(column=0, row=0, sticky=(tk.W, tk.E), padx=20, pady=20)
+        mainframe = ctk.CTkFrame(self)
+        mainframe.grid(column=0, row=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=30, pady=20)
+
+        # Add the drop down menu
+        self.league_combobox = ctk.CTkComboBox(mainframe, values=['choose league','Great League', 'Ultra League', 'Master League'])
+        self.league_combobox.grid(column=0, row=0,sticky="W", padx=0, pady=10)
+
+        opponent_frame = ctk.CTkLabel(mainframe, text="Opponent's Pokemon", text_color= 'gray', anchor="nw")
+        opponent_frame.grid(column=0, row=1, sticky=(tk.W, tk.E), padx=0, pady=(0,20))
         opponent_frame.grid_columnconfigure((0, 1, 2), weight=1) 
 
         self.opp_pokemon_frames = [PokemonFrame(opponent_frame, f"Pokemon {i + 1}") for i in range(3)]
         for i, frame in enumerate(self.opp_pokemon_frames):
-            frame.grid(column=i, row=0, padx=10, pady=10)
+            frame.grid(column=i, row=1, padx=10, pady=(20,0))
 
         info_frame = ctk.CTkFrame(mainframe)
-        info_frame.grid(column=0, row=1, sticky=(tk.W, tk.E), padx=20, pady=20)
+        info_frame.grid(column=0, row=2, sticky=(tk.W, tk.E), padx=20, pady=20)
 
         self.switch_timer_label = ctk.CTkLabel(info_frame, text="Switch Timer: ")
-        self.switch_timer_label.grid(column=0, row=0, sticky="W", padx=(10,70), pady=10)
+        self.switch_timer_label.grid(column=0, row=2, sticky="W", padx=(10,70), pady=10)
 
         self.correct_alignment_label = ctk.CTkLabel(info_frame, text="Correct Alignment: ")
-        self.correct_alignment_label.grid(column=1, row=0, sticky="W", padx=(0,70), pady=10)
+        self.correct_alignment_label.grid(column=1, row=2, sticky="W", padx=(0,70), pady=10)
 
-        ctk.CTkButton(info_frame, text="Reset UI", command=self.reset_ui).grid(column=2, row=0, padx=10, pady=10)
+        ctk.CTkButton(info_frame, text="Reset UI", command=self.reset_ui).grid(column=2, row=2, padx=10, pady=10)
         self.start_button = ctk.CTkButton(info_frame, text="Start Recording", command=self.recoding)
-        self.start_button.grid(column=3, row=0, padx=10, pady=10)
+        self.start_button.grid(column=3, row=2, padx=10, pady=10)
 
-
-        self.feed_res = feed_res
-        my_frame = ctk.CTkLabel(mainframe, text="Your Pokemon")
-        my_frame.grid(column=0, row=2, sticky=(tk.W, tk.E), padx=20, pady=20)
+        my_frame = ctk.CTkLabel(mainframe, text="Your Pokemon",text_color= 'gray',anchor="nw")
+        my_frame.grid(column=0, row=3, sticky=(tk.W, tk.E), padx=0, pady=0)
         my_frame.grid_columnconfigure((0, 1, 2), weight=1) 
 
         self.my_pokemon_frames = [PokemonFrame(my_frame, f"Pokemon {i + 1}") for i in range(3)]
         for i, frame in enumerate(self.my_pokemon_frames):
-            frame.grid(column=i, row=0, padx=10, pady=10)
+            frame.grid(column=i, row=3, padx=10, pady=(20,0))
 
         pil_image = Image.new("RGB", feed_res)
+
+        self.elapsed_time_label = ctk.CTkLabel(mainframe, text="0")
+        self.elapsed_time_label.grid(column=0, row=5, sticky='E', padx=0, pady=0) 
 
         if display_img:
             self.my_image = ctk.CTkImage(light_image=pil_image,dark_image=pil_image, size=feed_res)
             self.image_label = ctk.CTkLabel(mainframe, text='',image=self.my_image)
-            self.image_label.grid(column=0, row=3, pady=20)  
-
+            self.image_label.grid(column=0, row=4, pady=0)
 
         self.prev_my_roi_img = np.array([])
         self.prev_opp_roi_img = np.array([])
@@ -177,9 +182,10 @@ class PokemonBattleAssistant(ctk.CTk):
             self.stream_vid.start()
         else:
             self.start_button.configure(text="Start Recording")
-            self.out.release()
+            self.record_vid = False  # Ensure recording stops
+            self.stream_vid.join()  # Wait for the thread to actually stop
             print('releasing video')
-            self.record_vid = False  # stop the video streaming thread
+            self.out.release()
 
             
     def reset_ui(self):
@@ -223,9 +229,6 @@ class PokemonBattleAssistant(ctk.CTk):
         corrected_my_name = None
         corrected_opp_name = None
         if screen is not None:
-            # if self.record_vid:
-            #     resized_frame = cv2.resize(screen, self.vid_res)
-            #     self.out.write(resized_frame)
             my_roi_img = screen[my_roi[1]:my_roi[1] + my_roi[3], my_roi[0]:my_roi[0] + my_roi[2]]
             opp_roi_img = screen[opp_roi[1]:opp_roi[1] + opp_roi[3], opp_roi[0]:opp_roi[0] + opp_roi[2]]
 
@@ -441,7 +444,7 @@ class PokemonBattleAssistant(ctk.CTk):
                 self.my_image.configure(light_image=pil_img,dark_image=pil_img) 
 
         time_elapsed = time.time() - time_start
-        # print(round(time_elapsed,3))
+        self.elapsed_time_label.configure(text=f'{time_elapsed:0.3f}')
         self.after(update_timer, lambda: app.update_ui(client)) 
 
     def update_opp_label(self, index, name_of_variable, new_value):

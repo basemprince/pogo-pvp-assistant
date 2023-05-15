@@ -44,7 +44,7 @@ def update_json_files():
     repo_owner = 'pvpoke'
     repo_name = 'pvpoke'
     folder_path = 'src/data/rankings/all/overall/'
-    destination_directory = 'json_files'
+    destination_directory = 'json_files/rankings'
 
     headers = {'Accept': 'application/vnd.github+json'}
     url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{folder_path}'
@@ -74,6 +74,43 @@ def update_json_files():
                     print(f"Downloaded {local_path}")
     else:
         print(f"Failed to get folder content")
+
+def update_format_select(formats):
+    visible_formats = [format for format in formats if format['showFormat'] and not format.get('hideRankings', False)]
+    return visible_formats
+
+# Download file
+
+def download_current_cups():
+    repo_owner = 'pvpoke'
+    repo_name = 'pvpoke'
+    file_path = 'src/data/gamemaster.json'
+    destination_directory = 'json_files/rankings'
+
+    headers = {'Accept': 'application/vnd.github+json'}
+    url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}'
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        file_info = response.json()
+        download_url = file_info['download_url']
+        file_name = file_info['name']
+
+        local_path = os.path.join(destination_directory, file_name)
+
+        file_content = requests.get(download_url).content
+        with open(local_path, 'wb') as f:
+            f.write(file_content)
+            print(f"Downloaded {local_path}")
+
+    # Load JSON data
+    with open(local_path) as f:
+        data = json.load(f)
+
+    # Extract formats and call update_format_select
+    formats = data['formats']
+
+    return update_format_select(formats)
 
 def connect_to_device(ip):
     adb.connect("127.0.0.1:5037")
