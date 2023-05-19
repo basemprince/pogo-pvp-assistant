@@ -111,6 +111,7 @@
 }, {
     "moveId": "AURA_SPHERE",
     "name": "Aura Sphere",
+    "abbreviation": "AuS",
     "type": "fighting",
     "power": 100,
     "energy": 55,
@@ -175,6 +176,16 @@
     "cooldown": 500,
     "archetype": "Spam/Bait"
 }, {
+    "moveId": "BOOMBURST",
+    "name": "Boomburst",
+    "abbreviation": "BmB",
+    "type": "normal",
+    "power": 150,
+    "energy": 75,
+    "energyGain": 0,
+    "cooldown": 500,
+    "archetype": "Nuke"
+}, {
     "moveId": "BONE_CLUB",
     "name": "Bone Club",
     "type": "ground",
@@ -196,6 +207,19 @@
     "buffTarget": "self",
     "buffApplyChance": "1",
     "archetype": "Self-Debuff Nuke"
+}, {
+    "moveId": "BREAKING_SWIPE",
+    "name": "Breaking Swipe",
+    "abbreviation": "BkS",
+    "type": "dragon",
+    "power": 50,
+    "energy": 35,
+    "energyGain": 0,
+    "cooldown": 500,
+    "buffs": [-1, 0],
+    "buffTarget": "opponent",
+    "buffApplyChance": "1",
+    "archetype": "Debuff Spam/Bait"
 }, {
     "moveId": "BRICK_BREAK",
     "name": "Brick Break",
@@ -464,6 +488,16 @@
     "cooldown": 500,
     "archetype": "Spam/Bait"
 }, {
+    "moveId": "DOUBLE_IRON_BASH",
+    "name": "Double Iron Bash",
+	"abbreviation": "DbI",
+    "type": "steel",
+    "power": 50,
+    "energy": 35,
+    "energyGain": 0,
+    "cooldown": 500,
+    "archetype": "Spam/Bait"
+}, {
     "moveId": "DOUBLE_KICK",
     "name": "Double Kick",
     "type": "fighting",
@@ -524,6 +558,7 @@
 }, {
     "moveId": "DRAIN_PUNCH",
     "name": "Drain Punch",
+    "abbreviation": "DrP",
     "type": "fighting",
     "power": 20,
     "energy": 40,
@@ -769,6 +804,7 @@
 }, {
     "moveId": "FLY",
     "name": "Fly",
+    "abbreviation": "Fl",
     "type": "flying",
     "power": 80,
     "energy": 45,
@@ -843,6 +879,7 @@
 }, {
     "moveId": "FUSION_BOLT",
     "name": "Fusion Bolt",
+    "abbreviation": "FuB",
     "type": "electric",
     "power": 90,
     "energy": 45,
@@ -936,6 +973,7 @@
 }, {
     "moveId": "HEART_STAMP",
     "name": "Heart Stamp",
+    "abbreviation": "HeS",
     "type": "psychic",
     "power": 40,
     "energy": 40,
@@ -1256,6 +1294,7 @@
 }, {
     "moveId": "INFESTATION",
     "name": "Infestation",
+    "abbreviation": "Inf",
     "type": "bug",
     "power": 6,
     "energy": 0,
@@ -1443,6 +1482,7 @@
     "archetype": "Low Quality"
 }, {
     "moveId": "METEOR_BEAM",
+    "abbreviation": "MeB",
     "name": "Meteor Beam",
     "type": "rock",
     "power": 120,
@@ -1551,6 +1591,18 @@
     "cooldown": 1500,
     "archetype": "Heavy Damage"
 }, {
+    "moveId": "MYSTICAL_FIRE",
+    "name": "Mystical Fire",
+    "type": "fire",
+    "power": 60,
+    "energy": 45,
+    "energyGain": 0,
+    "cooldown": 500,
+    "buffs": [-1, 0],
+    "buffTarget": "opponent",
+    "buffApplyChance": "1",
+    "archetype": "Debuff"
+}, {
     "moveId": "NIGHT_SHADE",
     "name": "Night Shade",
     "abbreviation": "NSh",
@@ -1575,6 +1627,7 @@
 }, {
     "moveId": "OBSTRUCT",
     "name": "Obstruct",
+    "abbreviation": "Ob",
     "type": "dark",
     "power": 15,
     "energy": 40,
@@ -1725,6 +1778,7 @@
 }, {
     "moveId": "POLTERGEIST",
     "name": "Poltergeist",
+    "abbreviation": "Po",
     "type": "ghost",
     "power": 140,
     "energy": 75,
@@ -1826,6 +1880,7 @@
     "moveId": "PSYCHIC_FANGS",
     "name": "Psychic Fangs",
     "type": "psychic",
+    "abbreviation": "PsF",
     "power": 40,
     "energy": 35,
     "energyGain": 0,
@@ -2117,6 +2172,7 @@
 }, {
     "moveId": "SHADOW_FORCE",
     "name": "Shadow Force",
+    "abbreviation": "ShF",
     "type": "ghost",
     "power": 120,
     "energy": 90,
@@ -2144,6 +2200,7 @@
     "archetype": "General"
 }, {
     "moveId": "SIGNAL_BEAM",
+    "abbreviation": "SiB",
     "name": "Signal Beam",
     "type": "bug",
     "power": 75,
@@ -2192,6 +2249,7 @@
 }, {
     "moveId": "SLUDGE",
     "name": "Sludge",
+    "abbreviation": "Sl",
     "type": "poison",
     "power": 50,
     "energy": 40,
@@ -2670,6 +2728,7 @@
 }, {
     "moveId": "WRAP_GREEN",
     "name": "Wrap Green",
+    "abbreviation": "WrG",
     "type": "normal",
     "power": 25,
     "energy": 45,
@@ -2679,6 +2738,7 @@
 }, {
     "moveId": "WRAP_PINK",
     "name": "Wrap Pink",
+    "abbreviation": "WrP",
     "type": "normal",
     "power": 25,
     "energy": 45,

@@ -14,6 +14,11 @@ def load_pokemon_names():
     with open('json_files/pk.json', 'r') as file:
         return json.load(file)
 
+def load_pokemon_details():
+    # Load the JSON files
+    with open('json_files/pokemon.json', 'r') as file:
+        return json.load(file)
+    
 def load_moves_info():
     with open('json_files/moves.json', 'r') as file:
         return json.load(file)
@@ -105,6 +110,54 @@ def update_format_select(formats):
     visible_formats = [format for format in formats if format['showFormat'] and not format.get('hideRankings', False) and 'Silph' not in format['title'] and format['title'] != 'Custom']
     return visible_formats
 
+def update_pk_info():
+    repo_owner = 'pvpoke'
+    repo_name = 'pvpoke'
+    file_path = 'src/data/gamemaster/pokemon.json'
+    destination_directory = 'json_files/'
+
+    headers = {'Accept': 'application/vnd.github+json'}
+    url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}'
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        file_info = response.json()
+        download_url = file_info['download_url']
+        file_name = file_info['name']
+
+        local_path = os.path.join(destination_directory, file_name)
+
+        file_content = requests.get(download_url).content
+        with open(local_path, 'wb') as f:
+            f.write(file_content)
+            print(f"Downloaded {local_path}")
+    else:
+        print('failed')
+
+def update_move_info():
+    repo_owner = 'pvpoke'
+    repo_name = 'pvpoke'
+    file_path = 'src/data/gamemaster/moves.json'
+    destination_directory = 'json_files/'
+
+    headers = {'Accept': 'application/vnd.github+json'}
+    url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{file_path}'
+    response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        file_info = response.json()
+        download_url = file_info['download_url']
+        file_name = file_info['name']
+
+        local_path = os.path.join(destination_directory, file_name)
+
+        file_content = requests.get(download_url).content
+        with open(local_path, 'wb') as f:
+            f.write(file_content)
+            print(f"Downloaded {local_path}")
+    else:
+        print('failed')
+           
 def download_current_cups():
     repo_owner = 'pvpoke'
     repo_name = 'pvpoke'
