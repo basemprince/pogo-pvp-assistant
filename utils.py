@@ -192,7 +192,11 @@ def download_current_cups():
 
 def connect_to_device(ip):
     adb.connect("127.0.0.1:5037")
-    client = scrcpy.Client(device=adb.device_list()[0])
+    try:
+        client = scrcpy.Client(device=adb.device_list()[0])
+    except IndexError:
+        raise Exception("No devices connected.")
+
     client.start(threaded=True)
     print(f'Connected to: {client.device_name}')
     return client
@@ -283,6 +287,54 @@ def get_moveset_and_counts_udpated(pokemon_name, pokemon_data, move_data):
 
     return move_counts , fast_count
 
+def get_moveset_and_counts_2(pokemon_data, moves_data):
+    moveset = []
+    for pokemon in pokemon_data:
+        pokemon_moves = []
+        for fast_move in pokemon['fastMoves']:
+            for move in moves_data:
+                if fast_move.lower() == move['moveId'].lower():
+                    fast_move_data = move
+                    break
+            fast_count = round(fast_move_data['cooldown'] / 500)
+            fast_move_entry = {'fast_move': [fast_move, fast_count], 'charged_moves': []}
+            for charged_move in pokemon['chargedMoves']:
+                for move in moves_data:
+                    if charged_move.lower() == move['moveId'].lower():
+                        fast_move_entry['charged_moves'].append([charged_move,calculate_move_counts(fast_move_data, move)])
+                        break
+            pokemon_moves.append(fast_move_entry)
+        moveset.append(pokemon_moves)
+
+    return moveset
+
+def choose_moveset(move_dic, chosen_moveset):
+    chosen_fast_move = chosen_moveset[0]
+    chosen_charged_moves = chosen_moveset[1:]
+
+    for move_entry in move_dic:
+        if move_entry['fast_move'][0].lower() == chosen_fast_move.lower():
+            chosen_move_entry = {'fast_move': move_entry['fast_move']}
+            chosen_move_entry['charged_moves'] = [move for move in move_entry['charged_moves'] if move[0].lower() in (move.lower() for move in chosen_charged_moves)]
+            return chosen_move_entry
+    return None
+
+
+
+def common_pk(temp_corrected_my_name,league):
+        # Check if either Pokémon is Giratina and change form based on the league
+    if temp_corrected_my_name == "Giratina":
+        if league in ["great-league", "ultra-league"]:
+            temp_corrected_my_name = "Giratina (Altered)"
+        else:
+            temp_corrected_my_name = "Giratina (Origin)"
+
+    if temp_corrected_opp_name == "Giratina":
+        if league in ["great-league", "ultra-league"]:
+            temp_corrected_opp_name = "Giratina (Altered)"
+        else:
+            temp_corrected_opp_name = "Giratina (Origin)"
+    return temp_corrected_opp_name
 
 def mse(image1, image2):
     if image1.size == 0 or image2.size == 0:
