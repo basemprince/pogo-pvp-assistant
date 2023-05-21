@@ -9,6 +9,7 @@
 * Shows the last 3 opponent Pokémon seen 
 * A counter for opponent switch cooldown
 * Dropdown menu for currently available specific meta cups imported from PvPoke
+* Dropdown menus to choose which form of pokemon (if available) is currenlty on the fiels, and for fast and charge moves that updates based on the chosen moves
 
 # To-Do
 * Automate finding the ROI location for Pokémon information to make it work with any phone / resolution
@@ -22,8 +23,8 @@
 * Fix switch cool down bug when opponent pokemon faints
 * Try a non CV/dummy energy counter based on time elapsed (fast move energy gain/ cooldown, and the charge moves energy requiremnt)
 * Calculate percent of health cost inflected by each charge move on both Pokémon
-* Add drop down menu for pokemon with multiple forms
-* Add drop down menu for modifying the fast move. a third charge move drop down for the rest of the available charge moves (with counts based on fast move)
+* <del> Add drop down menu for pokemon with multiple forms
+* <del> Add drop down menu for modifying the fast move, that would update the charge move counts accordingly
 
 # Installation
 NOTE: Only works for Android devices. Connect your phone to your computer and allow for USB Debugging in your Developer Settings:
