@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import cv2
@@ -18,12 +18,12 @@ import threading
 import pickle
 
 
-# In[ ]:
+# In[2]:
 
 
 # parameters
 record_video = False
-print_out = True
+print_out = False
 display_img = True
 img_scale = 0.1
 update_timer = 1
@@ -32,7 +32,7 @@ update_pokemon = False
 phones = ['Pixel 3 XL', 'Pixel 7 Pro','Nexus 6P']
 
 
-# In[ ]:
+# In[3]:
 
 
 # Load the JSON files
@@ -54,7 +54,7 @@ client = utils.connect_to_device("127.0.0.1:5037")
 phone_t = phones.index(client.device_name)
 
 
-# In[ ]:
+# In[4]:
 
 
 roi_adjust =[[50,370,860],[50,350,860],[50,370,860]]
@@ -91,7 +91,7 @@ else:
     cup_names_combo_box.extend(avail_cups)
 
 
-# In[ ]:
+# In[5]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
@@ -262,9 +262,9 @@ class PokemonBattleAssistant(ctk.CTk):
 
             
     def reset_ui(self):
+
         self.prev_my_roi_img = np.array([])
         self.prev_opp_roi_img = np.array([])
-        self.league_combobox.set('choose league')
         self.prev_corrected_my_name = None
         self.prev_corrected_opp_name = None
         self.league = None
@@ -272,9 +272,14 @@ class PokemonBattleAssistant(ctk.CTk):
         self.my_pokemon_memory = []
         self.switch_out_time = None
         self.switch_out_countdown = None
-        self.switch_memory = []
         self.opp_switch_timer_label = None
+        self.switch_memory = []
         self.league_pok = None
+
+        self.mem_map = {'my': self.my_pokemon_memory, 'opp': self.opp_pokemon_memory}
+
+        self.league_combobox.set('choose league')
+
         self.current_opp_pokemon_index = None
         self.current_my_pokemon_index = None
         for number in range(len(self.my_pokemon_frames)):
@@ -302,11 +307,9 @@ class PokemonBattleAssistant(ctk.CTk):
         temp_corrected_name = utils.closest_pokemon_name(info_name, pokemon_names)
         move_data = [item for item in pokemon_details if temp_corrected_name and item['speciesName'].startswith(temp_corrected_name)]
         
-        # If temp_corrected_name is the same as the previous name, return early
         if temp_corrected_name == prev_corrected_name:
             return prev_corrected_name, prev_corrected_name
 
-        # Debug print block
         if print_out:
             for entry in move_data:
                 print(f"Species Name: {entry['speciesName']}")
@@ -314,21 +317,17 @@ class PokemonBattleAssistant(ctk.CTk):
                 print(f"Charged Moves: {', '.join(entry['chargedMoves'])}")
                 print("\n")
 
-        # Update temp_corrected_name if move_data is not empty
         if move_data:
             temp_corrected_name = move_data[0]['speciesName']
 
-        # Update moveset if temp_corrected_name and prev_corrected_name are different and move_data is not empty
         if temp_corrected_name != prev_corrected_name and move_data:
             self.moveset_update(side, move_data, temp_corrected_name)
 
-        # If temp_corrected_name does not exist, assign the prev_corrected_name to it and print debug message
         if not temp_corrected_name:
             temp_corrected_name = prev_corrected_name
             if print_out:
                 print(f"Using previous Pokémon name for Pokémon: {temp_corrected_name}")
 
-        # The previous corrected name should now be the current corrected name
         prev_corrected_name = temp_corrected_name
 
         return temp_corrected_name, prev_corrected_name

@@ -9,7 +9,8 @@
 * Shows the last 3 opponent Pokémon seen 
 * A counter for opponent switch cooldown
 * Dropdown menu for currently available specific meta cups imported from PvPoke
-* Dropdown menus to choose which form of pokemon (if available) is currenlty on the fiels, and for fast and charge moves that updates based on the chosen moves
+* Dropdown menus to choose which form of pokemon (if available) is currenlty on the field, and for fast and charge moves that updates based on the chosen moves
+* Screen recording functionality
 
 # To-Do
 * Automate finding the ROI location for Pokémon information to make it work with any phone / resolution
