@@ -23,27 +23,30 @@ def load_moves_info():
     with open('json_files/moves.json', 'r') as file:
         return json.load(file)
 
-def load_alignment_df():
-    alingment_info = """,1,2,3,4,5
+def load_alignment_df(counts=4):
+    alignment_info = """,1,2,3,4,5
     1,,"1,2","2,3","3,4","4,5"
     2,,,"1,3","1,2","2,5"
     3,,"1,2",,"1,4","3,5"
     4,,,"2,3",,"1,5"
     5,,"1,2","1,4","3,4","""
 
-    df = pd.read_csv(io.StringIO(alingment_info), index_col=0)
-    def find_correct_first_three_counts(row, col):
-        if pd.isna(df.at[row, col]):
-            return None
-        move_counts = [int(count) for count in df.at[row, col].split(',')]
-        first_count, step = move_counts
-        return [first_count + step * i for i in range(3)]
+    df = pd.read_csv(io.StringIO(alignment_info), index_col=0)
 
     for index, row in df.iterrows():
         for col in df.columns:
-            result = find_correct_first_three_counts(index, col)
+            result = find_correct_alignment(df, index, col, counts)
             df.at[index, col] = result
     return df
+
+def find_correct_alignment(df, row, col, counts):
+    if pd.isna(df.at[row, col]):
+        return None
+    move_counts = [int(count) for count in df.at[row, col].split(',')]
+    if len(move_counts) < 2:
+        return None
+    first_count, step = move_counts[:2]
+    return [first_count + step * i for i in range(counts)]
 
 def update_json_files():
     repo_owner = 'pvpoke'
