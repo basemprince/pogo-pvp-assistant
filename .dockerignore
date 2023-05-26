@@ -1,0 +1,10 @@
+.DS_Store
+**/.DS_Store
+/pvpoke
+.vscode/
+/Pogo
+__pycache__/
+/yolo_models
+videos/
+.git
+.venv
