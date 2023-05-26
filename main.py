@@ -286,14 +286,24 @@ class Player:
         if self.shield_count > 0:
             self.shield_count -= 1
 
-    def ui_helper(self):
+    def ui_helper_specific(self,pokemon_ind,chosen_pk_ind,fast_mv):
+        pk_chosen = self.pokemons[pokemon_ind][chosen_pk_ind]
+        
+    def ui_helper(self,pokemon_ind=None,chosen_pk_ind=None):
         pk_name = []
         pk_fast_moves = []
         pk_charge_moves = []
 
-        for pk in self.pokemons[self.current_pokemon_index]:
-            pk_name.append(pk.species_name)
-        pk_recom = self.pokemons[self.current_pokemon_index][self.recommended_pk_ind[self.current_pokemon_index]]
+        if pokemon_ind is None:
+            pokemon_ind = self.current_pokemon_index
+            for pk in self.pokemons[pokemon_ind]:
+                pk_name.append(pk.species_name)
+
+        if chosen_pk_ind is None:
+            pk_recom = self.pokemons[pokemon_ind][self.recommended_pk_ind[self.current_pokemon_index]]
+        else:
+            pk_recom = self.pokemons[pokemon_ind][chosen_pk_ind]
+            
         for fast_mv in pk_recom.fast_moves.values():
             pk_fast_moves.append(fast_mv.move_count_str())
         for charge_mv in pk_recom.charge_moves.values():
@@ -310,35 +320,13 @@ class Player:
                f"switch_lock={self.switch_lock}, " \
                f"switch_lock_timer={self.switch_lock_timer})"
 
-league_pok = f"json_files/rankings/Ultra League.json"
-with open(league_pok, 'r') as file:
-    league_pok = json.load(file)
+# league_pok = f"json_files/rankings/Ultra League.json"
+# with open(league_pok, 'r') as file:
+#     league_pok = json.load(file)
 
-pk = load_pk_data('tapu bulu',pokemon_names,pokemon_details,moves,league_pok)
-my_player = Player('me')
-my_player.add_pokemon(pk)
-
-
-# In[ ]:
-
-
-pk = load_pk_data('groudon',pokemon_names,pokemon_details,moves,league_pok)
-my_player.add_pokemon(pk)
-pk = load_pk_data('glaceon',pokemon_names,pokemon_details,moves,league_pok)
-my_player.add_pokemon(pk)
-
-
-# In[ ]:
-
-
-my_player.pokemons
-
-
-# In[ ]:
-
-
-pk = load_pk_data('seanseal',pokemon_names,pokemon_details,moves,league_pok)
-my_player.add_pokemon(pk)
+# pk = load_pk_data('tapu bulu',pokemon_names,pokemon_details,moves,league_pok)
+# my_player = Player('me')
+# my_player.add_pokemon(pk)
 
 
 # In[ ]:
@@ -386,7 +374,7 @@ class PokemonBattleAssistant(ctk.CTk):
         my_frame.grid(column=0, row=3, sticky=(tk.W, tk.E), padx=0, pady=0)
         my_frame.grid_columnconfigure((0, 1, 2), weight=1) 
 
-        self.my_pokemon_frames = [self.create_pokemon_frame(my_frame,i , "my") for i in range(3)]
+        self.my_pokemon_frames = [self.create_pokemon_frame(my_frame,i , "me") for i in range(3)]
         for i, frame in enumerate(self.my_pokemon_frames):
             frame.grid(column=i, row=3, padx=10, pady=(5,10))
 
@@ -406,12 +394,7 @@ class PokemonBattleAssistant(ctk.CTk):
         self.prev_corrected_opp_name = None
         self.threshold = 500
         self.league = None
-        self.opp_pokemon_memory = []
-        self.my_pokemon_memory = []
-        self.switch_out_time = None
-        self.switch_out_countdown = None
-        self.opp_switch_timer_label = None
-        self.switch_memory = []
+
         self.league_pok = None
         self.move_type = ['fast_move','charge_move1','charge_move2']
         self.move_type_disp = ['Fast Move','Charge Move 1','Charge Move 2']
@@ -419,6 +402,7 @@ class PokemonBattleAssistant(ctk.CTk):
         self.current_my_pokemon_index = None
         self.my_energy_start = time.time()
         self.opp_energy_start = time.time()
+
 
 
         self.vid_res = (int(client.resolution[0]/2), int(client.resolution[1]/2))
@@ -430,8 +414,6 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.frames_map = {'me': self.my_pokemon_frames, 'opp': self.opp_pokemon_frames}
         self.player_map = {'me': self.my_player, 'opp': self.opp_player}
-        self.mem_map = {'me': self.my_pokemon_memory, 'opp': self.opp_pokemon_memory}
-
 
 
     def create_pokemon_frame(self, master, num, side):
@@ -460,41 +442,30 @@ class PokemonBattleAssistant(ctk.CTk):
 
         return frame
 
-
     def pk_callback(self, choice, box_type, side, num):
-        # print(f"{box_type} ComboBox with choice {choice} from {side} frame: {num} was selected")
+ 
         label = self.find_label(side,num,'pokemon_name_label')
         chosen_pk_ind = self.get_index(label)
-        move_counts = self.mem_map[side][num][1][chosen_pk_ind]
-        chosen_moveset = self.mem_map[side][num][2]
-        if box_type == 'pokemon_name_label':
-            self.update_label(side,num, 'fast_move', [pk_fast['fast_move'] for pk_fast in move_counts])
-            fast_mv_label = self.find_label(side,num,'fast_move')
-            values = fast_mv_label.cget("values")
-            for val in values:
-                if val.startswith(chosen_moveset[chosen_pk_ind][0]):
-                    fast_mv_label.set(val)
-                    break        
-            choice = fast_mv_label.get()
 
-        for move_data in move_counts:
-            if ' - '.join(str(item) for item in move_data['fast_move']) == choice:
-                charged_moves = move_data['charged_moves']
-                self.update_label(side,num, 'charge_move1', charged_moves)
-                self.update_label(side,num, 'charge_move2', charged_moves)
-                charge_label = self.find_label(side,num,'charge_move1')
-                values = charge_label.cget("values")
-                for val in values:
-                    if val.startswith(chosen_moveset[chosen_pk_ind][1]):
-                        charge_label.set(val)
-                        break
-                charge_label = self.find_label(side,num,'charge_move2')
-                values = charge_label.cget("values")
-                for val in values:
-                    if val.startswith(chosen_moveset[chosen_pk_ind][2]):
-                        charge_label.set(val)
-                        break
-                break
+        mv_recom = self.player_map[side].pokemons[num][chosen_pk_ind].recommended_moveset
+        _, fast_moves, charge_moves = self.player_map[side].ui_helper(num,chosen_pk_ind)
+        if box_type == 'pokemon_name_label':
+            self.update_label(side, num, 'fast_move', fast_moves)
+            fast_mv_label = self.find_label(side,num,'fast_move')
+            fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].fast_moves[mv_recom[0]]
+            fast_mv_label.set(fast_mv.move_count_str())
+
+        else:
+            fast_mv = choice.split(' - ')[0].upper().replace(" ", "_")
+            fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].fast_moves[fast_mv]
+
+        self.update_label(side,num, 'charge_move1', charge_moves)
+        charge_label = self.find_label(side,num,'charge_move1')
+        charge_label.set(self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[mv_recom[1]].move_count_str(fast_mv.move_id))
+
+        self.update_label(side,num, 'charge_move2', charge_moves)
+        charge_label = self.find_label(side,num,'charge_move2')
+        charge_label.set(self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[mv_recom[2]].move_count_str(fast_mv.move_id))   
 
     def highlight_on(self, frame):
         if frame.cget('fg_color') != "green":
@@ -538,24 +509,16 @@ class PokemonBattleAssistant(ctk.CTk):
         self.prev_corrected_my_name = None
         self.prev_corrected_opp_name = None
         self.league = None
-        self.opp_pokemon_memory = []
-        self.my_pokemon_memory = []
-        self.switch_out_time = None
-        self.switch_out_countdown = None
-        self.opp_switch_timer_label = None
-        self.switch_memory = []
         self.league_pok = None
-
-        self.mem_map = {'my': self.my_pokemon_memory, 'opp': self.opp_pokemon_memory}
 
         self.league_combobox.set('choose league')
 
         self.current_opp_pokemon_index = None
         self.current_my_pokemon_index = None
         for number in range(len(self.my_pokemon_frames)):
-            self.update_label('my',number, 'pokemon_name_label', f'Pokemon {number+1}')
+            self.update_label('me',number, 'pokemon_name_label', f'Pokemon {number+1}')
             for move,move_disp in zip(self.move_type,self.move_type_disp):
-                self.update_label('my',number, move, move_disp)
+                self.update_label('me',number, move, move_disp)
         for number in range(len(self.opp_pokemon_frames)):
             self.update_label('opp',number, 'pokemon_name_label', f'Pokemon {number+1}')
             for move,move_disp in zip(self.move_type,self.move_type_disp):
@@ -573,99 +536,14 @@ class PokemonBattleAssistant(ctk.CTk):
             self.out.write(resized_frame)
             time.sleep(0.01) 
 
-    def update_pokemon_data(self, side, info_name, prev_corrected_name):
-        temp_corrected_name = utils.closest_pokemon_name(info_name, pokemon_names)
-        move_data = [item for item in pokemon_details if temp_corrected_name and item['speciesName'].startswith(temp_corrected_name)]
-        
-        if temp_corrected_name == prev_corrected_name:
-            return prev_corrected_name, prev_corrected_name
 
-        if print_out:
-            for entry in move_data:
-                print(f"Species Name: {entry['speciesName']}")
-                print(f"Fast Moves: {', '.join(entry['fastMoves'])}")
-                print(f"Charged Moves: {', '.join(entry['chargedMoves'])}")
-                print("\n")
-
-        if move_data:
-            temp_corrected_name = move_data[0]['speciesName']
-
-        if temp_corrected_name != prev_corrected_name and move_data:
-            self.moveset_update(side, move_data, temp_corrected_name)
-
-        if not temp_corrected_name:
-            temp_corrected_name = prev_corrected_name
-            if print_out:
-                print(f"Using previous Pokémon name for Pokémon: {temp_corrected_name}")
-
-        prev_corrected_name = temp_corrected_name
-
-        return temp_corrected_name, prev_corrected_name
-
-
-    def moveset_update(self,side,move_data,corrected_name):
-        memory = self.mem_map[side]
-        move_dic = utils.get_moveset_and_counts_2(move_data, moves)
-        chosen_moveset = []
-        if not any(pokemon[0][0] == corrected_name for pokemon in memory):
-            for pokemon in self.league_pok:
-                    for pok in move_data:
-                        if pok['speciesName'].lower() == pokemon['speciesName'].lower():
-                            chosen_moveset.append(pokemon['moveset'])
-                            break
-            if len(memory) >= 3:
-                memory.pop(0)
-            memory.append([[pok['speciesName'] for pok in move_data], move_dic,chosen_moveset,0])
-
-            for pokemon_number, pokemon_data in enumerate(memory):
-                pokemon_name, move_counts,chosen_moveset, _ = pokemon_data
-                if print_out:
-                    print(f"pokemon_name: {pokemon_name}, move_counts: {move_counts}")
-                self.update_label(side,pokemon_number, 'pokemon_name_label', pokemon_name)
-                pk_label = self.find_label(side,pokemon_number,'pokemon_name_label')
-                chosen_pk_ind = self.get_index(pk_label)
-                self.update_label(side,pokemon_number, 'fast_move', [pk_fast['fast_move'] for pk_fast in move_counts[chosen_pk_ind]])
-                fast_mv_label = self.find_label(side,pokemon_number,'fast_move')
-                values = fast_mv_label.cget("values")
-                if chosen_moveset:
-                    for val in values:
-                        if val.startswith(chosen_moveset[chosen_pk_ind][0]):
-                            fast_mv_label.set(val)
-                            break
-
-                if move_counts is not None:
-                    for move_data in move_counts[chosen_pk_ind]:
-                        if ' - '.join(str(item) for item in move_data['fast_move']) == fast_mv_label.get():
-                            charged_moves = move_data['charged_moves']
-                            self.update_label(side,pokemon_number, 'charge_move1', charged_moves)
-                            self.update_label(side,pokemon_number, 'charge_move2', charged_moves)
-                            charge_label = self.find_label(side,pokemon_number,'charge_move1')
-                            values = charge_label.cget("values")
-                            if chosen_moveset:
-                                for val in values:
-                                    if val.startswith(chosen_moveset[chosen_pk_ind][1]):
-                                        charge_label.set(val)
-                                        break
-                            charge_label = self.find_label(side,pokemon_number,'charge_move2')
-                            values = charge_label.cget("values")
-                            if chosen_moveset:
-                                for val in values:
-                                    if val.startswith(chosen_moveset[chosen_pk_ind][2]):
-                                        charge_label.set(val)
-                                        break
-                            break
-
-    def moveset_update_2(self,side):
+    def moveset_update(self,side):
         current_ind = self.player_map[side].current_pokemon_index
         pk_recom = self.player_map[side].recommended_pk_ind[current_ind]
         if pk_recom is None:
             print(f"No recommended Pokemon index set for player {side}, Pokemon {current_ind}")
             return
         mv_recom = self.player_map[side].pokemons[current_ind][pk_recom].recommended_moveset
-
-        print(f"current_ind: {current_ind}, pk_recom: {pk_recom}")
-        print(f"recommended_pk_ind: {self.player_map[side].recommended_pk_ind}")
-        print(f"pokemons: {self.player_map[side].pokemons}")
         pk_names, fast_moves, charge_moves = self.player_map[side].ui_helper()
 
         self.update_label(side,self.player_map[side].current_pokemon_index,'pokemon_name_label',pk_names)
@@ -683,36 +561,6 @@ class PokemonBattleAssistant(ctk.CTk):
         charge_label = self.find_label(side,current_ind,'charge_move2')
         charge_label.set(self.player_map[side].pokemons[current_ind][pk_recom].charge_moves[mv_recom[2]].move_count_str(fast_mv.move_id))        
 
-
-        # if chosen_moveset:
-        #     for val in values:
-        #         if val.startswith(chosen_moveset[chosen_pk_ind][0]):
-        #             fast_mv_label.set(val)
-        #             break
-
-        #     if move_counts is not None:
-        #         for move_data in move_counts[chosen_pk_ind]:
-        #             if ' - '.join(str(item) for item in move_data['fast_move']) == fast_mv_label.get():
-        #                 charged_moves = move_data['charged_moves']
-        #                 self.update_label(side,pokemon_number, 'charge_move1', charged_moves)
-        #                 self.update_label(side,pokemon_number, 'charge_move2', charged_moves)
-        #                 charge_label = self.find_label(side,pokemon_number,'charge_move1')
-        #                 values = charge_label.cget("values")
-        #                 if chosen_moveset:
-        #                     for val in values:
-        #                         if val.startswith(chosen_moveset[chosen_pk_ind][1]):
-        #                             charge_label.set(val)
-        #                             break
-        #                 charge_label = self.find_label(side,pokemon_number,'charge_move2')
-        #                 values = charge_label.cget("values")
-        #                 if chosen_moveset:
-        #                     for val in values:
-        #                         if val.startswith(chosen_moveset[chosen_pk_ind][2]):
-        #                             charge_label.set(val)
-        #                             break
-        #                 break
-
-
     def update_highlight(self,side):
         current_ind = self.player_map[side].current_pokemon_index
         for i, frame in enumerate(self.frames_map[side]):
@@ -720,28 +568,11 @@ class PokemonBattleAssistant(ctk.CTk):
                 self.highlight_on(frame)
             else:
                 self.highlight_off(frame)
-
-    def update_pokemon_index(self, side,corrected_name):
-        if corrected_name:
-            for index, pokemon_data in enumerate(self.mem_map[side]):
-                if pokemon_data[0][0] == corrected_name:
-                    if side == 'my':
-                        self.current_my_pokemon_index = index
-                    else:
-                        self.current_opp_pokemon_index = index
-                    for i, frame in enumerate(self.frames_map[side]):
-                        if i == index:
-                            self.highlight_on(frame)
-                        else:
-                            self.highlight_off(frame)
-                    break
         
     def update_ui(self,client):
         time_start = time.time()
         screen = client.last_frame
         # screen = cv2.imread('templates/screenshot.png')
-        corrected_my_name = None
-        corrected_opp_name = None
         if screen is not None:
             my_roi_img = screen[my_roi[1]:my_roi[1] + my_roi[3], my_roi[0]:my_roi[0] + my_roi[2]]
             opp_roi_img = screen[opp_roi[1]:opp_roi[1] + opp_roi[3], opp_roi[0]:opp_roi[0] + opp_roi[2]]
@@ -841,17 +672,13 @@ class PokemonBattleAssistant(ctk.CTk):
                         update_me = self.my_player.add_pokemon(my_pk)
                         update_opp = self.opp_player.add_pokemon(opp_pk)
                         if update_me:
-                            self.moveset_update_2('me')
+                            self.moveset_update('me')
                         if update_opp:
-                            self.moveset_update_2('opp')
+                            self.moveset_update('opp')
                         self.update_highlight('me')
                         self.update_highlight('opp')
-                    #     corrected_opp_name, self.prev_corrected_opp_name = self.update_pokemon_data('opp', opp_info_name, self.prev_corrected_opp_name)
-                    #     corrected_my_name,  self.prev_corrected_my_name  = self.update_pokemon_data('my', my_info_name,  self.prev_corrected_my_name)
-
-                    #     self.update_pokemon_index('opp',corrected_opp_name)
-                    #     self.update_pokemon_index('my',corrected_my_name)
-                    # else:
+ 
+                    else:
                         self.my_enery_start = time.time()
                         self.opp_enery_start = time.time()
                         with PyTessBaseAPI(psm=PSM.AUTO_OSD) as api:
@@ -873,7 +700,7 @@ class PokemonBattleAssistant(ctk.CTk):
             screen_with_rois = cv2.rectangle(screen_with_rois, (msgs_roi[0], msgs_roi[1]), (msgs_roi[0] + msgs_roi[2], msgs_roi[1] + msgs_roi[3]), roi_color, roi_thick)
 
             if self.current_my_pokemon_index is not None and self.current_opp_pokemon_index is not None:
-                my_count = self.find_label('my',self.current_my_pokemon_index,'fast_move').get()[-1]
+                my_count = self.find_label('me',self.current_my_pokemon_index,'fast_move').get()[-1]
                 opp_count = self.find_label('opp',self.current_opp_pokemon_index,'fast_move').get()[-1]
                 try:
                     correct_count = alignment_df.loc[int(my_count), opp_count]
@@ -914,10 +741,4 @@ if __name__ == "__main__":
     app = PokemonBattleAssistant(feed_res,cup_names_combo_box)
     app.after(update_timer, lambda: app.update_ui(client)) 
     app.mainloop()
-
-
-# In[ ]:
-
-
-app.opp_player.pokemons
 
