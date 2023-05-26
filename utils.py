@@ -6,8 +6,10 @@ import os
 from adbutils import adb
 import scrcpy.core as scrcpy
 from difflib import get_close_matches
-import math
 import numpy as np
+import cv2
+from PIL import Image
+import re
 
 def load_pokemon_names():
     # Load the JSON files
@@ -212,132 +214,15 @@ def closest_pokemon_name(name, names_list):
         return closest_name[0]
     return None
 
-def calculate_move_counts(fast_move, charged_move):
-    counts = []
-    counts.append(math.ceil((charged_move['energy'] * 1) / fast_move['energyGain']))
-    counts.append(math.ceil((charged_move['energy'] * 2) / fast_move['energyGain']) - counts[0])
-    counts.append(math.ceil((charged_move['energy'] * 3) / fast_move['energyGain']) - counts[0] - counts[1])
-
-    return counts
-
-def get_moveset_and_counts(pokemon_name, pokemon_data, move_data):
-    moveset = None
-    for pokemon in pokemon_data:
-        if pokemon_name.lower() == pokemon['speciesName'].lower():
-            moveset = pokemon['moveset']
-            break
-
-    if moveset is None:
-        return None , 0
-
-    fast_move = moveset[0]
-    charged1 = moveset[1]
-    charged2 = moveset[2]
-
-    fast_move_data = None
-    for move in move_data:
-        if fast_move.lower() == move['moveId'].lower():
-            fast_move_data = move
-            break
-
-    if fast_move_data is None:
-        return None , 0
-
-    fast_count = round(fast_move_data['cooldown'] / 500)
-    move_counts = {}
-    move_counts[fast_move] = fast_count
-    for charged_move_name in [charged1, charged2]:
-        for move in move_data:
-            if charged_move_name.lower() == move['moveId'].lower():
-                move_counts[charged_move_name] = calculate_move_counts(fast_move_data, move)
-                break
-
-    return move_counts , fast_count
-
-
-def get_moveset_and_counts_udpated(pokemon_name, pokemon_data, move_data):
-    moveset = None
-    for pokemon in pokemon_data:
-        if pokemon_name.lower() == pokemon['speciesName'].lower():
-            moveset = pokemon['moveset']
-            break
-
-    if moveset is None:
-        return None , 0
-
-    fast_move = moveset[0]
-    charged1 = moveset[1]
-    charged2 = moveset[2]
-
-    fast_move_data = None
-    for move in move_data:
-        if fast_move.lower() == move['moveId'].lower():
-            fast_move_data = move
-            break
-
-    if fast_move_data is None:
-        return None , 0
-
-    fast_count = round(fast_move_data['cooldown'] / 500)
-    move_counts = {
-        'fast_move': [fast_move, fast_count]
-    }
-    for charged_move_name, key in zip([charged1, charged2], ['charge_move1', 'charge_move2']):
-        for move in move_data:
-            if charged_move_name.lower() == move['moveId'].lower():
-                move_counts[key] = [charged_move_name, calculate_move_counts(fast_move_data, move)]
-                break
-
-    return move_counts , fast_count
-
-def get_moveset_and_counts_2(pokemon_data, moves_data):
-    moveset = []
-    for pokemon in pokemon_data:
-        pokemon_moves = []
-        for fast_move in pokemon['fastMoves']:
-            for move in moves_data:
-                if fast_move.lower() == move['moveId'].lower():
-                    fast_move_data = move
-                    break
-            fast_count = round(fast_move_data['cooldown'] / 500)
-            fast_move_entry = {'fast_move': [fast_move, fast_count], 'charged_moves': []}
-            for charged_move in pokemon['chargedMoves']:
-                for move in moves_data:
-                    if charged_move.lower() == move['moveId'].lower():
-                        fast_move_entry['charged_moves'].append([charged_move,calculate_move_counts(fast_move_data, move)])
-                        break
-            pokemon_moves.append(fast_move_entry)
-        moveset.append(pokemon_moves)
-
-    return moveset
-
-def choose_moveset(move_dic, chosen_moveset):
-    chosen_fast_move = chosen_moveset[0]
-    chosen_charged_moves = chosen_moveset[1:]
-
-    for move_entry in move_dic:
-        if move_entry['fast_move'][0].lower() == chosen_fast_move.lower():
-            chosen_move_entry = {'fast_move': move_entry['fast_move']}
-            chosen_move_entry['charged_moves'] = [move for move in move_entry['charged_moves'] if move[0].lower() in (move.lower() for move in chosen_charged_moves)]
-            return chosen_move_entry
-    return None
-
-
-
-def common_pk(temp_corrected_my_name,league):
-        # Check if either Pokémon is Giratina and change form based on the league
-    if temp_corrected_my_name == "Giratina":
-        if league in ["great-league", "ultra-league"]:
-            temp_corrected_my_name = "Giratina (Altered)"
-        else:
-            temp_corrected_my_name = "Giratina (Origin)"
-
-    if temp_corrected_opp_name == "Giratina":
-        if league in ["great-league", "ultra-league"]:
-            temp_corrected_opp_name = "Giratina (Altered)"
-        else:
-            temp_corrected_opp_name = "Giratina (Origin)"
-    return temp_corrected_opp_name
+def process_image(img):
+    prev_img = img.copy()
+    gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    blur_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
+    _, thresh_img = cv2.threshold(blur_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    kernel = np.ones((2, 2), np.uint8)
+    thresh_img = cv2.morphologyEx(thresh_img, cv2.MORPH_OPEN, kernel)
+    thresh_img = Image.fromarray(thresh_img)
+    return prev_img, thresh_img
 
 def mse(image1, image2):
     if image1.size == 0 or image2.size == 0:
@@ -360,3 +245,48 @@ def get_next_filename(directory):
         nums = sorted([int(f.split('.')[0]) for f in files])
         next_num = nums[-1] + 1
         return os.path.join(directory, f'{next_num}.mp4')
+    
+class LeagueDetector:
+    def __init__(self):
+        self.league = None
+        self.league_pok = None
+        
+    @staticmethod
+    def extract_cp(info):
+        cp = re.search(r'\bCP\s+(\d+)\b', info)
+        return int(cp.group(1)) if cp else None
+
+    def set_league_based_on_cp(self, cp):
+        if cp <= 500:
+            self.league = "Little Cup"
+        elif cp <= 1500:
+            self.league = "Great League"
+        elif cp <= 2500:
+            self.league = "Ultra League"
+        else:
+            self.league = "Master League"
+
+    def load_league_json(self):
+        if self.league:
+            self.league_pok = f"json_files/rankings/{self.league}.json"
+            try:
+                with open(self.league_pok, 'r') as file:
+                    self.league_pok = json.load(file)
+                    print(f"Loaded {self.league} JSON data")
+            except FileNotFoundError:
+                print(f"Failed to load {self.league} JSON data")
+
+    def detect_league(self, my_info, opp_info):
+        my_cp = self.extract_cp(my_info)
+        opp_cp = self.extract_cp(opp_info)
+        # print(f"My Pokémon CP: {my_cp}")
+        # print(f"Opponent Pokémon CP: {opp_cp}")
+
+        if my_cp and opp_cp:
+            higher_cp = max(my_cp, opp_cp)
+            self.set_league_based_on_cp(higher_cp)
+            self.load_league_json()
+        # else:
+        #     print("Could not determine league")
+        
+        return self.league, self.league_pok

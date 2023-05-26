@@ -224,7 +224,7 @@ class Player:
         self.name = name
         self.pokemons = [None, None, None]
         self.recommended_pk_ind = [None, None, None]
-        self.current_pokemon_index = 0  # Index of the current Pokemon on the field
+        self.current_pokemon_index = None  # Index of the current Pokemon on the field
         self.shield_count = 2  
         self.pokemon_count = 0
         self.switch_lock = False
@@ -390,20 +390,18 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.prev_my_roi_img = np.array([])
         self.prev_opp_roi_img = np.array([])
-        self.prev_corrected_my_name = None
-        self.prev_corrected_opp_name = None
         self.threshold = 500
+        
         self.league = None
-
         self.league_pok = None
+
         self.move_type = ['fast_move','charge_move1','charge_move2']
         self.move_type_disp = ['Fast Move','Charge Move 1','Charge Move 2']
-        self.current_opp_pokemon_index = None
-        self.current_my_pokemon_index = None
         self.my_energy_start = time.time()
         self.opp_energy_start = time.time()
 
-
+        self.league_detector = utils.LeagueDetector()
+        
 
         self.vid_res = (int(client.resolution[0]/2), int(client.resolution[1]/2))
         self.record_vid = False
@@ -506,12 +504,15 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.prev_my_roi_img = np.array([])
         self.prev_opp_roi_img = np.array([])
-        self.prev_corrected_my_name = None
-        self.prev_corrected_opp_name = None
         self.league = None
         self.league_pok = None
 
         self.league_combobox.set('choose league')
+
+        self.my_player = Player('me')
+        self.opp_player = Player('opp')
+        self.league_detector = utils.LeagueDetector()
+        self.player_map = {'me': self.my_player, 'opp': self.opp_player}
 
         self.current_opp_pokemon_index = None
         self.current_my_pokemon_index = None
@@ -579,32 +580,9 @@ class PokemonBattleAssistant(ctk.CTk):
             msgs_roi_img = screen[msgs_roi[1]:msgs_roi[1] + msgs_roi[3], msgs_roi[0]:msgs_roi[0] + msgs_roi[2]]
 
             if utils.mse(my_roi_img, self.prev_my_roi_img) > self.threshold or utils.mse(opp_roi_img, self.prev_opp_roi_img) > self.threshold:
-                self.prev_my_roi_img  = my_roi_img.copy()
-                self.prev_opp_roi_img = opp_roi_img.copy()
-                self.prev_msg_roi_img = msgs_roi_img.copy()
-                gray_my_roi  = cv2.cvtColor(my_roi_img, cv2.COLOR_BGR2GRAY)
-                gray_opp_roi = cv2.cvtColor(opp_roi_img, cv2.COLOR_BGR2GRAY)
-                gray_msg_roi = cv2.cvtColor(msgs_roi_img, cv2.COLOR_BGR2GRAY)
-
-                # Apply Gaussian blur to the grayscale images
-                blur_my_roi  = cv2.GaussianBlur(gray_my_roi, (5, 5), 0)
-                blur_opp_roi = cv2.GaussianBlur(gray_opp_roi, (5, 5), 0)
-                blur_msg_roi = cv2.GaussianBlur(gray_msg_roi, (5, 5), 0)
-
-                # Apply binary thresholding
-                _, thresh_my_roi  = cv2.threshold(blur_my_roi, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                _, thresh_opp_roi = cv2.threshold(blur_opp_roi, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                _, thresh_msg_roi = cv2.threshold(blur_msg_roi, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-
-                # Apply morphological operations to remove noise
-                kernel = np.ones((2, 2), np.uint8)
-                thresh_my_roi = cv2.morphologyEx(thresh_my_roi, cv2.MORPH_OPEN, kernel)
-                thresh_opp_roi = cv2.morphologyEx(thresh_opp_roi, cv2.MORPH_OPEN, kernel)
-                thresh_msg_roi = cv2.morphologyEx(thresh_msg_roi, cv2.MORPH_OPEN, kernel)
-
-                thresh_my_roi = Image.fromarray(thresh_my_roi)
-                thresh_opp_roi = Image.fromarray(thresh_opp_roi)
-                thresh_msg_roi = Image.fromarray(thresh_msg_roi)
+                self.prev_my_roi_img, thresh_my_roi = utils.process_image(my_roi_img)
+                self.prev_opp_roi_img, thresh_opp_roi = utils.process_image(opp_roi_img)
+                self.prev_msg_roi_img, thresh_msg_roi = utils.process_image(msgs_roi_img)
 
                 with PyTessBaseAPI(psm=PSM.AUTO_OSD) as api:
                     api.SetImage(thresh_my_roi)
@@ -615,43 +593,15 @@ class PokemonBattleAssistant(ctk.CTk):
                     api.Recognize()
                     opp_info = api.GetUTF8Text()
 
-                # Display the extracted Pokémon name and CP value
                 if print_out:
                     print("My Info:", my_info)
                     print("Opponent Info:", opp_info)
 
                 # for auto-detection if league not chosen
                 if self.league_combobox.get() == 'choose league':
-                    # Extract CP values using regex
-                    my_cp = re.search(r'\bCP\s+(\d+)\b', my_info)
-                    opp_cp = re.search(r'\bCP\s+(\d+)\b', opp_info)
-                    if my_cp:
-                        my_cp = int(my_cp.group(1))
-                        print(f"My Pokémon CP: {my_cp}")
-                    if opp_cp:
-                        opp_cp = int(opp_cp.group(1))
-                        print(f"Opponent Pokémon CP: {opp_cp}")
-                    if my_cp and opp_cp:
-                        higher_cp = max(my_cp, opp_cp)
-                        if higher_cp <= 500:
-                            self.league = "Little Cup"
-                        elif higher_cp <= 1500 > 500:
-                            self.league = "Great League"
-                        elif 1500 < higher_cp <= 2500:
-                            self.league = "Ultra League"
-                        else:
-                            self.league = "Master League"
+                    self.league, self.league_pok = self.league_detector.detect_league(my_info, opp_info)
+                    if self.league:
                         self.league_combobox.set(self.league)
-                        self.league_pok = f"json_files/rankings/{self.league}.json"
-                        try:
-                            with open(self.league_pok, 'r') as file:
-                                self.league_pok = json.load(file)
-                                print(f"Loaded {self.league} JSON data")
-                        except FileNotFoundError:
-                            print(f"Failed to load {self.league} JSON data")
-                    else:
-                        if print_out:
-                            print("Could not determine league")    
                     
                 # Extract Pokémon names
                 my_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', my_info)
@@ -661,10 +611,6 @@ class PokemonBattleAssistant(ctk.CTk):
                     if my_info_match and opp_info_match:
                         my_info_name = my_info_match.group(0)
                         opp_info_name = opp_info_match.group(0)
-
-                        if not self.prev_corrected_opp_name or not self.prev_corrected_my_name :
-                            self.my_energy_start = time.time()
-                            self.opp_energy_start = time.time()
 
                         my_pk = load_pk_data(my_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
                         opp_pk = load_pk_data(opp_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
@@ -699,9 +645,9 @@ class PokemonBattleAssistant(ctk.CTk):
             screen_with_rois = cv2.rectangle(screen_with_rois, (opp_roi[0], opp_roi[1]), (opp_roi[0] + opp_roi[2], opp_roi[1] + opp_roi[3]), roi_color, roi_thick)
             screen_with_rois = cv2.rectangle(screen_with_rois, (msgs_roi[0], msgs_roi[1]), (msgs_roi[0] + msgs_roi[2], msgs_roi[1] + msgs_roi[3]), roi_color, roi_thick)
 
-            if self.current_my_pokemon_index is not None and self.current_opp_pokemon_index is not None:
-                my_count = self.find_label('me',self.current_my_pokemon_index,'fast_move').get()[-1]
-                opp_count = self.find_label('opp',self.current_opp_pokemon_index,'fast_move').get()[-1]
+            if self.opp_player.current_pokemon_index is not None and self.my_player.current_pokemon_index is not None:
+                my_count = self.find_label('me',self.my_player.current_pokemon_index,'fast_move').get()[-1]
+                opp_count = self.find_label('opp',self.opp_player.current_pokemon_index,'fast_move').get()[-1]
                 try:
                     correct_count = alignment_df.loc[int(my_count), opp_count]
                 except KeyError:
