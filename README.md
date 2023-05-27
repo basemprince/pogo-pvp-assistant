@@ -46,7 +46,16 @@ pip install -r requirements.txt
 ```
 python main.py
 ```
-Now, the pogo-bot should show up in a new window as shown:
+Now, the battle assistant should show up in a new window as shown:
 <p align="center">
 <img src="templates/app-ui.png" width="400">
 </p>
+
+# Dockerfile steps
+after installing the docker engine run the following:
+```
+sudo docker build -t pogo-bot .
+xhost +local:
+sudo docker run --net="host" -e DISPLAY=unix$DISPLAY pogo-bot
+
+```
