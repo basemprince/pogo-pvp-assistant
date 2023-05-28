@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import cv2
@@ -21,7 +21,7 @@ import math
 import match
 
 
-# In[2]:
+# In[ ]:
 
 
 # parameters
@@ -35,7 +35,7 @@ update_pokemon = False
 phones = ['Pixel 3 XL', 'Pixel 7 Pro','Nexus 6P']
 
 
-# In[3]:
+# In[ ]:
 
 
 # Load the JSON files
@@ -57,7 +57,7 @@ client = utils.connect_to_device("127.0.0.1:5037")
 phone_t = phones.index(client.device_name)
 
 
-# In[4]:
+# In[ ]:
 
 
 roi_adjust =[[50,370,860],[50,350,860],[50,370,860]]
@@ -97,7 +97,7 @@ else:
     cup_names_combo_box.extend(avail_cups)
 
 
-# In[5]:
+# In[ ]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
@@ -186,24 +186,30 @@ class PokemonBattleAssistant(ctk.CTk):
         frame = ctk.CTkFrame(master)
         box_width = 250
 
-        frame.pokemon_name_label = ctk.CTkComboBox(frame, values=[f"Pokemon {num+1}"], font=("Arial", 20), command=lambda choice, box_type='pokemon_name_label', side=side, num=num: self.pk_callback(choice, box_type, side, num), width=200)
+        frame.pokemon_name_label = ctk.CTkComboBox(frame, values=[f"Pokemon {num+1}"], font=("Arial", 20), command=lambda choice,
+                                box_type='pokemon_name_label', side=side, num=num: self.pk_callback(choice, box_type, side, num), width=200)
         frame.pokemon_name_label.grid(column=0, row=0, sticky="W", padx=10, pady=10)
 
-        frame.fast_move = ctk.CTkComboBox(frame, values=["Fast Move"], command=lambda choice, box_type='fast_move', side=side, num=num: self.pk_callback(choice, box_type, side, num), width=box_width)
+        frame.fast_move = ctk.CTkComboBox(frame, values=["Fast Move"], command=lambda choice, box_type='fast_move', 
+                                          side=side, num=num: self.pk_callback(choice, box_type, side, num), width=box_width)
         frame.fast_move.grid(column=0, row=1, sticky="W", padx=10, pady=10)
 
-        frame.charge_move1 = ctk.CTkComboBox(frame, values=["Charge Move 1"], width=box_width)
+        frame.charge_move1 = ctk.CTkComboBox(frame, values=["Charge Move 1"], command=lambda choice, box_type='charge_move1', 
+                                          side=side, num=num: self.pk_charge_callback(choice, box_type, side, num), width=box_width)
         frame.charge_move1.grid(column=0, row=2, sticky="W", padx=10, pady=10)
 
-        frame.charge_move1_progress = ctk.CTkProgressBar(frame, orientation="horizontal", height=20, width=50,corner_radius=0)
+        frame.charge_move1_progress = ctk.CTkProgressBar(frame, orientation="horizontal", height=20, width=50,corner_radius=0,
+                                                         fg_color='gray',border_color='black')
         frame.charge_move1_progress.set(0) 
         frame.charge_move1_progress.grid(column=1, row=2, sticky="W", padx=10, pady=10)
 
-        frame.charge_move2 = ctk.CTkComboBox(frame, values=["Charge Move 2"], width=box_width)
+        frame.charge_move2 = ctk.CTkComboBox(frame, values=["Charge Move 2"], command=lambda choice, box_type='charge_move2', 
+                                          side=side, num=num: self.pk_charge_callback(choice, box_type, side, num), width=box_width)
         frame.charge_move2.grid(column=0, row=3, sticky="W", padx=10, pady=10)
 
-        frame.charge_move2_progress = ctk.CTkProgressBar(frame, orientation="horizontal", height=20, width=50,corner_radius=0,fg_color='#3281a8',progress_color='#103c52')
-        frame.charge_move2_progress.set(0.5) 
+        frame.charge_move2_progress = ctk.CTkProgressBar(frame, orientation="horizontal", height=20, width=50,corner_radius=0,
+                                                        fg_color='gray',border_color='black')
+        frame.charge_move2_progress.set(0) 
         frame.charge_move2_progress.grid(column=1, row=3, sticky="W", padx=10, pady=10)
 
         return frame
@@ -212,6 +218,7 @@ class PokemonBattleAssistant(ctk.CTk):
  
         label = self.find_label(side,num,'pokemon_name_label')
         chosen_pk_ind = self.get_index(label)
+        self.player_map[side].ui_chosen_pk_ind[num] = chosen_pk_ind
 
         mv_recom = self.player_map[side].pokemons[num][chosen_pk_ind].recommended_moveset
         _, fast_moves, charge_moves = self.player_map[side].ui_helper(num,chosen_pk_ind)
@@ -223,15 +230,41 @@ class PokemonBattleAssistant(ctk.CTk):
 
         else:
             fast_mv = choice.split(' - ')[0].upper().replace(" ", "_")
+            self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0] = fast_mv
             fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].fast_moves[fast_mv]
 
-        self.update_label(side,num, 'charge_move1', charge_moves)
-        charge_label = self.find_label(side,num,'charge_move1')
-        charge_label.set(self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[mv_recom[1]].move_count_str(fast_mv.move_id))
+        for i in [1,2]:
+            self.update_label(side,num, f'charge_move{i}', charge_moves)
+            charge_label = self.find_label(side,num,f'charge_move{i}')
+            charge_label.set(self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[mv_recom[i]].move_count_str(fast_mv.move_id))
 
-        self.update_label(side,num, 'charge_move2', charge_moves)
-        charge_label = self.find_label(side,num,'charge_move2')
-        charge_label.set(self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[mv_recom[2]].move_count_str(fast_mv.move_id))   
+    def pk_charge_callback(self,choice,box_type,side,num):
+        charge_num= int(box_type[-1])
+        move = choice.split(' - ')[0].upper().replace(" ", "_")
+        self.player_map[side].pokemons[num][self.player_map[side].ui_chosen_pk_ind[num]].ui_chosen_moveset[charge_num] = move
+
+    def charge_move_progress(self):
+        for side in ['opp','me']:
+            num = self.player_map[side].current_pokemon_index
+            chosen_pk_ind = self.player_map[side].ui_chosen_pk_ind[num]
+            
+            fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0]
+            for i in [1,2]:
+                charge_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[i]
+                accum_energy = self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[charge_mv].accum_energy[fast_mv]
+                progress = self.find_label(side,num,f'charge_move{i}_progress')
+                colors = self.progress_bar_color(accum_energy)
+                progress.set(colors[0])
+                progress.configure(fg_color=colors[1],progress_color=colors[2])
+                
+
+    def progress_bar_color(self,energy):
+        if 0 <= energy < 1:
+            return (energy,"gray", "#378df0")
+        elif 1 <= energy < 2:
+            return (energy-1,"#378df0", "#1a2182")
+        elif 2 <= energy <= 3:
+            return (energy-2,"#1a2182", "#080936")
 
     def highlight_on(self, frame):
         if frame.cget('fg_color') != "green":
@@ -304,7 +337,6 @@ class PokemonBattleAssistant(ctk.CTk):
             resized_frame = cv2.resize(screen, self.vid_res)
             self.out.write(resized_frame)
             time.sleep(0.01) 
-
 
     def moveset_update(self,side):
         current_ind = self.player_map[side].current_pokemon_index
@@ -383,23 +415,36 @@ class PokemonBattleAssistant(ctk.CTk):
                         my_pk = match.load_pk_data(my_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
                         opp_pk = match.load_pk_data(opp_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
 
+
                         update_me = self.my_player.add_pokemon(my_pk)
                         update_opp = self.opp_player.add_pokemon(opp_pk)
+
+                        self.my_player.start_update()
+                        self.opp_player.start_update()
+
                         if update_me:
                             self.moveset_update('me')
                         if update_opp:
                             self.moveset_update('opp')
+
                         self.update_highlight('me')
                         self.update_highlight('opp')
- 
                     else:
-                        self.my_enery_start = time.time()
-                        self.opp_enery_start = time.time()
+                        self.opp_player.pokemon_energy_updater(False)
+                        self.my_player.pokemon_energy_updater(False)
+                        
                         with PyTessBaseAPI(psm=PSM.AUTO_OSD) as api:
                             api.SetImage(thresh_msg_roi)
                             api.Recognize()
                             msg_info = api.GetUTF8Text()
                             # print('heeeeeerererere',msg_info)
+
+            if self.league:
+                self.my_player.pokemon_energy_updater(True)
+                self.opp_player.pokemon_energy_updater(True)
+                self.charge_move_progress()
+                # print('opp', self.opp_player.pokemons[self.opp_player.current_pokemon_index][0].time_on_field)
+                # print('player', self.my_player.pokemons[self.my_player.current_pokemon_index][0].time_on_field)
 
             # opponent switch lock timer
             if self.opp_player.switch_lock:
@@ -408,7 +453,7 @@ class PokemonBattleAssistant(ctk.CTk):
 
             # Draw rectangles around the ROI
             roi_color = (0, 0, 0)  
-            roi_thick = 7
+            roi_thick = 12
             screen_with_rois = cv2.rectangle(screen.copy(), (my_roi[0], my_roi[1]), (my_roi[0] + my_roi[2], my_roi[1] + my_roi[3]), roi_color, roi_thick)
             screen_with_rois = cv2.rectangle(screen_with_rois, (opp_roi[0], opp_roi[1]), (opp_roi[0] + opp_roi[2], opp_roi[1] + opp_roi[3]), roi_color, roi_thick)
             screen_with_rois = cv2.rectangle(screen_with_rois, (msgs_roi[0], msgs_roi[1]), (msgs_roi[0] + msgs_roi[2], msgs_roi[1] + msgs_roi[3]), roi_color, roi_thick)

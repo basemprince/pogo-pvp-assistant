@@ -52,7 +52,7 @@ Now, the battle assistant should show up in a new window as shown:
 </p>
 
 # Dockerfile steps
-after installing the docker engine run the following:
+If you would like to run the app using a docker container instead, after installing the docker engine run the following:
 ```
 sudo docker build -t pogo-bot .
 xhost +local:

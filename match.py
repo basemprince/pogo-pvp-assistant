@@ -28,6 +28,8 @@ class ChargeMove(Move):
     def __init__(self, name, move_id, move_type, energy_cost, counts):
         super().__init__(name, move_id, move_type, "charge", energy_cost)
         self.counts = counts
+        self.accum_energy = {}
+
     def __repr__(self):
         return f"{self.__class__.__name__}(name={self.name}, move_type={self.move_type}, category={self.category}, energy={self.energy}, counts={self.counts})"
     def move_count_str(self,fast_move):
@@ -77,15 +79,24 @@ class Pokemon:
                 self.add_charge_move(move['name'],move['moveId'], move['type'], move['energy'], {})
                 self.calculate_charge_move_counts(self.charge_moves[move['moveId']])
     
-    def update_energy(self):
+    def calculate_energy_gain(self):
+        for fast_name, fast_mv in self.fast_moves.items():
+            accum_move_count = math.floor(self.time_on_field * 1000 / fast_mv.cooldown)
+            for charge_mv in self.charge_moves.values():
+                accum_energy = accum_move_count * fast_mv.energy
+                if accum_energy >= 100: accum_energy = 100 
+                charge_mv.accum_energy[fast_name] = accum_energy / charge_mv.energy
+                
+    def update_time_on_field(self):
+        if self.last_update_time == None: 
+            return
         current_time = time.time()
         time_difference = current_time - self.last_update_time
-        self.energy += self.calculate_energy_gain(time_difference)
-        self.last_update_time = current_time
 
-    def calculate_energy_gain(self, time_difference):
-        # logic for energy gain over time
-        pass
+        increments = int(time_difference / 0.5)
+        self.time_on_field += increments * 0.5
+        self.last_update_time = self.last_update_time + increments * 0.5
+        self.calculate_energy_gain()
 
     def calculate_charge_move_counts(self,charge_move):
         for fast_move_id, fast_move in self.fast_moves.items():
@@ -126,13 +137,14 @@ class Player:
         self.name = name
         self.pokemons = [None, None, None]
         self.recommended_pk_ind = [None, None, None]
+        self.ui_chosen_pk_ind = [None, None, None]
         self.current_pokemon_index = None  # Index of the current Pokemon on the field
         self.shield_count = 2  
         self.pokemon_count = 0
         self.switch_lock = False
         self.switch_lock_timer = 0 
         self.switch_out_time = None
-        self.oldest_pokemon_index = 0  # Added to track the index of the oldest Pokemon
+        self.oldest_pokemon_index = 0
 
     def add_pokemon(self, pokemon_list):
         if not pokemon_list:
@@ -167,7 +179,18 @@ class Player:
                 max_rating_index = i
 
         self.recommended_pk_ind[self.current_pokemon_index] = max_rating_index
+        self.ui_chosen_pk_ind[self.current_pokemon_index] = self.recommended_pk_ind[self.current_pokemon_index] 
 
+    def pokemon_energy_updater(self,update):
+        for pokemon in self.pokemons[self.current_pokemon_index]:
+            if update:
+                pokemon.update_time_on_field()
+            else:
+                pokemon.last_update_time = None
+    
+    def start_update(self):
+        for pokemon in self.pokemons[self.current_pokemon_index]:
+            pokemon.last_update_time = time.time()
 
     def update_current_pokemon_index(self, new_index):
         if new_index != self.current_pokemon_index:
