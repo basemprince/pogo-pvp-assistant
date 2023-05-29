@@ -11,6 +11,7 @@
 * Dropdown menu for currently available specific meta cups imported from PvPoke
 * Dropdown menus to choose which form of pokemon (if available) is currenlty on the field, and for fast and charge moves that updates based on the chosen moves
 * Screen recording functionality
+* Energy accumulation tracking along with energy deduction when charge moves are thrown (not accurate - needs further work)
 
 # To-Do
 * Automate finding the ROI location for Pokémon information to make it work with any phone / resolution
@@ -22,7 +23,7 @@
 * <del> Add a count down from 60 seconds when the opponent switches Pokémon to know when they are no longer locked in
 * Calculate and display which Pokémon wins CMP
 * Fix switch cool down bug when opponent pokemon faints
-* Try a non CV/dummy energy counter based on time elapsed (fast move energy gain/ cooldown, and the charge moves energy requiremnt)
+* <del> Try a non CV/dummy energy counter based on time elapsed (fast move energy gain/ cooldown, and the charge moves energy requiremnt)
 * Calculate percent of health cost inflected by each charge move on both Pokémon
 * <del> Add drop down menu for pokemon with multiple forms
 * <del> Add drop down menu for modifying the fast move, that would update the charge move counts accordingly

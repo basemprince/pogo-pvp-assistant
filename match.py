@@ -48,6 +48,9 @@ class Pokemon:
         self.recommended_moveset = None  # recommended Fast and Charge Moves based on league
         self.ui_chosen_moveset = None
         self.rating = None
+        self.used_energy = 0
+        self.last_used_charge_mv_time = 0
+        self.charge_mv_throw_cool_down = 5
 
     def __repr__(self):
         return f"{self.__class__.__name__}(species_name={self.species_name}, energy={self.energy}, time_on_field={self.time_on_field}, recommended_moveset={self.recommended_moveset})"
@@ -81,12 +84,28 @@ class Pokemon:
     
     def calculate_energy_gain(self):
         for fast_name, fast_mv in self.fast_moves.items():
-            accum_move_count = math.floor(self.time_on_field * 1000 / fast_mv.cooldown)
+            accum_move_count = math.ceil(self.time_on_field * 1000 / fast_mv.cooldown)
             for charge_mv in self.charge_moves.values():
-                accum_energy = accum_move_count * fast_mv.energy
+                accum_energy = (accum_move_count * fast_mv.energy) - self.used_energy
+                if accum_energy < 0: accum_energy = 0
                 if accum_energy >= 100: accum_energy = 100 
                 charge_mv.accum_energy[fast_name] = accum_energy / charge_mv.energy
                 
+    def calculate_energy_used(self,used_charge_mv):
+        current_time = time.time()
+        used_charge_mv = used_charge_mv.replace(" ", "_").replace("!", "").upper()
+        
+        if current_time - self.last_used_charge_mv_time < self.charge_mv_throw_cool_down:
+            return
+
+        closest_charge_mv = utils.closest_name(used_charge_mv,self.charge_moves.keys())
+        
+        if closest_charge_mv:
+            self.used_energy += self.charge_moves[closest_charge_mv].energy
+            print(self.species_name, closest_charge_mv,self.used_energy)
+
+        self.last_used_charge_mv_time = current_time
+            
     def update_time_on_field(self):
         if self.last_update_time == None: 
             return
@@ -111,7 +130,7 @@ class Pokemon:
         return counts
 
 def load_pk_data(info_name, pokemon_names, pokemon_details,moves_data,league_pok):
-    temp_corrected_name = utils.closest_pokemon_name(info_name, pokemon_names)
+    temp_corrected_name = utils.closest_name(info_name, pokemon_names)
     move_data = [item for item in pokemon_details if temp_corrected_name and item['speciesName'].startswith(temp_corrected_name)]
     
     pokemon_list = []
@@ -129,13 +148,14 @@ def load_pk_data(info_name, pokemon_names, pokemon_details,moves_data,league_pok
         
         pokemon_list.append(pokemon)
     
-    return pokemon_list
+    return pokemon_list, temp_corrected_name
 
 
 class Player:
     def __init__(self, name):
         self.name = name
         self.pokemons = [None, None, None]
+        self.pk_battle_name = [None, None, None]
         self.recommended_pk_ind = [None, None, None]
         self.ui_chosen_pk_ind = [None, None, None]
         self.current_pokemon_index = None  # Index of the current Pokemon on the field
@@ -145,8 +165,9 @@ class Player:
         self.switch_lock_timer = 0 
         self.switch_out_time = None
         self.oldest_pokemon_index = 0
+        self.initialized = False
 
-    def add_pokemon(self, pokemon_list):
+    def add_pokemon(self, pokemon_list,pk_name):
         if not pokemon_list:
             return False  # Skip this list if it's empty
         pokemon_list = [pokemon for pokemon in pokemon_list if pokemon.recommended_moveset]  # Filter out Pokemon with empty recommended_moveset
@@ -157,12 +178,15 @@ class Player:
                 return False  # Skip if Pokemon already in list
 
         if self.pokemon_count < 3:
+            self.initialized = True
             self.pokemons[self.pokemon_count] = pokemon_list
+            self.pk_battle_name[self.pokemon_count] = pk_name
             self.update_current_pokemon_index(self.pokemon_count)
             self.update_recommended_pk()
             self.pokemon_count += 1
         else:
             self.pokemons[self.oldest_pokemon_index] = pokemon_list  # Replace the oldest Pokemon with the new one
+            self.pk_battle_name[self.oldest_pokemon_index] = pk_name
             self.update_current_pokemon_index(self.oldest_pokemon_index)  
             self.update_recommended_pk()
             self.oldest_pokemon_index = (self.oldest_pokemon_index + 1) % 3  # Update the index of the oldest Pokemon
@@ -182,12 +206,18 @@ class Player:
         self.ui_chosen_pk_ind[self.current_pokemon_index] = self.recommended_pk_ind[self.current_pokemon_index] 
 
     def pokemon_energy_updater(self,update):
-        for pokemon in self.pokemons[self.current_pokemon_index]:
-            if update:
-                pokemon.update_time_on_field()
-            else:
-                pokemon.last_update_time = None
-    
+        if self.initialized:
+            for pokemon in self.pokemons[self.current_pokemon_index]:
+                if update:
+                    pokemon.update_time_on_field()
+                else:
+                    pokemon.last_update_time = None
+
+    def pokemon_energy_consumer(self,charge_mv):
+        if self.initialized:
+            for pokemon in self.pokemons[self.current_pokemon_index]:
+                pokemon.calculate_energy_used(charge_mv)
+
     def start_update(self):
         for pokemon in self.pokemons[self.current_pokemon_index]:
             pokemon.last_update_time = time.time()
@@ -251,7 +281,7 @@ if __name__ == "__main__":
     with open(league_pok, 'r') as file:
         league_pok = json.load(file)
 
-    pk = load_pk_data('tapu bulu',pokemon_names,pokemon_details,moves,league_pok)
+    pk ,pk_name = load_pk_data('tapu bulu',pokemon_names,pokemon_details,moves,league_pok)
     my_player = Player('me')
     my_player.add_pokemon(pk)
     print(my_player)

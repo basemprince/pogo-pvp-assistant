@@ -160,6 +160,8 @@ class PokemonBattleAssistant(ctk.CTk):
         self.prev_opp_roi_img = np.array([])
         self.threshold = 500
         
+        self.my_info_match = None
+        self.opp_info_match = None
         self.league = None
         self.league_pok = None
 
@@ -245,17 +247,18 @@ class PokemonBattleAssistant(ctk.CTk):
 
     def charge_move_progress(self):
         for side in ['opp','me']:
-            num = self.player_map[side].current_pokemon_index
-            chosen_pk_ind = self.player_map[side].ui_chosen_pk_ind[num]
-            
-            fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0]
-            for i in [1,2]:
-                charge_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[i]
-                accum_energy = self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[charge_mv].accum_energy[fast_mv]
-                progress = self.find_label(side,num,f'charge_move{i}_progress')
-                colors = self.progress_bar_color(accum_energy)
-                progress.set(colors[0])
-                progress.configure(fg_color=colors[1],progress_color=colors[2])
+            if self.player_map[side].initialized:
+                num = self.player_map[side].current_pokemon_index
+                chosen_pk_ind = self.player_map[side].ui_chosen_pk_ind[num]
+                
+                fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0]
+                for i in [1,2]:
+                    charge_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[i]
+                    accum_energy = self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[charge_mv].accum_energy[fast_mv]
+                    progress = self.find_label(side,num,f'charge_move{i}_progress')
+                    colors = self.progress_bar_color(accum_energy)
+                    progress.set(colors[0])
+                    progress.configure(fg_color=colors[1],progress_color=colors[2])
                 
 
     def progress_bar_color(self,energy):
@@ -300,11 +303,30 @@ class PokemonBattleAssistant(ctk.CTk):
             print('releasing video')
             self.out.release()
 
-            
+    def extract_thrown_move(self,ocr_output):
+        match = re.search(r'(.+?) used (.+)', ocr_output)
+        if match:
+            pokemon, move = match.groups()
+            my_pk = self.my_player.pk_battle_name[self.my_player.current_pokemon_index]
+            opp_pk = self.opp_player.pk_battle_name[self.opp_player.current_pokemon_index]
+            closest = utils.closest_name(pokemon,[my_pk,opp_pk])
+            if closest == my_pk:
+                self.my_player.pokemon_energy_consumer(move)
+            elif closest == opp_pk:
+                self.opp_player.pokemon_energy_consumer(move)
+            else:
+                print("Message info did not match")
+                
+            return pokemon, move
+        else:
+            return None, None
+                
     def reset_ui(self):
 
         self.prev_my_roi_img = np.array([])
         self.prev_opp_roi_img = np.array([])
+        self.my_info_match = None
+        self.opp_info_match = None
         self.league = None
         self.league_pok = None
 
@@ -317,19 +339,21 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.current_opp_pokemon_index = None
         self.current_my_pokemon_index = None
-        for number in range(len(self.my_pokemon_frames)):
-            self.update_label('me',number, 'pokemon_name_label', f'Pokemon {number+1}')
-            for move,move_disp in zip(self.move_type,self.move_type_disp):
-                self.update_label('me',number, move, move_disp)
-        for number in range(len(self.opp_pokemon_frames)):
-            self.update_label('opp',number, 'pokemon_name_label', f'Pokemon {number+1}')
-            for move,move_disp in zip(self.move_type,self.move_type_disp):
-                self.update_label('opp',number, move, move_disp)
+        for side in ['opp','me']:
+            for number in range(len(self.frames_map[side])):
+                self.update_label(side,number, 'pokemon_name_label', f'Pokemon {number+1}')
+                for move,move_disp in zip(self.move_type,self.move_type_disp):
+                    self.update_label(side,number, move, move_disp)
+                for charge_mv_num in [1,2]:
+                    progress = self.find_label(side,number,f'charge_move{charge_mv_num}_progress')
+                    progress.set(0)
+                    colors = self.progress_bar_color(0)
+                    progress.configure(fg_color=colors[1],progress_color=colors[2])
+                self.highlight_off(self.frames_map[side][number])
+
         self.switch_timer_label.configure(text=f"Switch Timer: ")
         self.correct_alignment_label.configure(text="Correct Alignemnt: ")
-        for my_frame,opp_frame in zip(self.my_pokemon_frames,self.opp_pokemon_frames):
-            self.highlight_off(my_frame)
-            self.highlight_off(opp_frame)
+
 
     def vid_stream(self):
         while self.record_vid:
@@ -404,20 +428,20 @@ class PokemonBattleAssistant(ctk.CTk):
                         self.league_combobox.set(self.league)
                     
                 # Extract Pokémon names
-                my_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', my_info)
-                opp_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', opp_info)
+                self.my_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', my_info)
+                self.opp_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', opp_info)
 
                 if self.league:
-                    if my_info_match and opp_info_match:
-                        my_info_name = my_info_match.group(0)
-                        opp_info_name = opp_info_match.group(0)
+                    if self.my_info_match and self.opp_info_match:
+                        my_info_name = self.my_info_match.group(0)
+                        opp_info_name = self.opp_info_match.group(0)
 
-                        my_pk = match.load_pk_data(my_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
-                        opp_pk = match.load_pk_data(opp_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
+                        my_pk, my_pk_name = match.load_pk_data(my_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
+                        opp_pk, opp_pk_name = match.load_pk_data(opp_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
 
 
-                        update_me = self.my_player.add_pokemon(my_pk)
-                        update_opp = self.opp_player.add_pokemon(opp_pk)
+                        update_me = self.my_player.add_pokemon(my_pk,my_pk_name)
+                        update_opp = self.opp_player.add_pokemon(opp_pk,opp_pk_name)
 
                         self.my_player.start_update()
                         self.opp_player.start_update()
@@ -437,7 +461,8 @@ class PokemonBattleAssistant(ctk.CTk):
                             api.SetImage(thresh_msg_roi)
                             api.Recognize()
                             msg_info = api.GetUTF8Text()
-                            # print('heeeeeerererere',msg_info)
+                            pk, chr_mv = self.extract_thrown_move(msg_info)
+                            # print('------------------------',pk , '-----', chr_mv)
 
             if self.league:
                 self.my_player.pokemon_energy_updater(True)

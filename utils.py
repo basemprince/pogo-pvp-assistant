@@ -208,7 +208,7 @@ def connect_to_device(ip):
 
 
 # Function to find the closest Pokémon name
-def closest_pokemon_name(name, names_list):
+def closest_name(name, names_list):
     closest_name = get_close_matches(name, names_list, n=1, cutoff=0.6)
     if closest_name:
         return closest_name[0]
