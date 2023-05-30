@@ -10,6 +10,7 @@ import numpy as np
 import cv2
 from PIL import Image
 import re
+import yaml
 
 def load_pokemon_names():
     # Load the JSON files
@@ -41,6 +42,16 @@ def load_alignment_df(counts=4):
             df.at[index, col] = result
     return df
 
+def load_phone_data(device_name):
+    with open("phone_roi.yaml", 'r') as file:
+        data = yaml.safe_load(file)
+    if data is None:
+        return None
+    if device_name in data:
+        return data[device_name]
+    else:
+        return None
+    
 def find_correct_alignment(df, row, col, counts):
     if pd.isna(df.at[row, col]):
         return None

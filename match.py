@@ -161,6 +161,7 @@ class Player:
         self.current_pokemon_index = None  # Index of the current Pokemon on the field
         self.shield_count = 2  
         self.pokemon_count = 0
+        self.fainted_pokemon = 0
         self.switch_lock = False
         self.switch_lock_timer = 0 
         self.switch_out_time = None

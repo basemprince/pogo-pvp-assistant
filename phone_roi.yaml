@@ -1,0 +1,72 @@
+Pixel 3 XL:
+  msgs_roi:
+  - 250
+  - 996
+  - 930
+  - 100
+  my_pokeballs_roi:
+  - 40
+  - 430
+  - 223
+  - 63
+  my_roi:
+  - 40
+  - 373
+  - 530
+  - 50
+  my_typing_roi:
+  - 20
+  - 276
+  - 150
+  - 73
+  opp_pokeballs_roi:
+  - 1177
+  - 430
+  - 223
+  - 63
+  opp_roi:
+  - 870
+  - 373
+  - 530
+  - 50
+  opp_typing_roi:
+  - 1270
+  - 276
+  - 150
+  - 73
+Pixel 7 Pro:
+  msgs_roi:
+  - 250
+  - 1020
+  - 930
+  - 100
+  my_pokeballs_roi:
+  - 40
+  - 400
+  - 223
+  - 63
+  my_roi:
+  - 40
+  - 343
+  - 530
+  - 50
+  my_typing_roi:
+  - 20
+  - 253
+  - 150
+  - 73
+  opp_pokeballs_roi:
+  - 1177
+  - 400
+  - 223
+  - 63
+  opp_roi:
+  - 870
+  - 343
+  - 530
+  - 50
+  opp_typing_roi:
+  - 1270
+  - 253
+  - 150
+  - 73
