@@ -40,7 +40,8 @@ git clone git@github.com:basemprince/pogo-bot.git
 2. Navigate to the cloned repository and install the required Python packages:
 ```
 cd pogo-bot
-sudo apt-get install tesseract-ocr
+sudo apt-get update
+sudo apt-get install -y gcc g++ tesseract-ocr libtesseract-dev libleptonica-dev pkg-config ffmpeg libsm6 libxext6 tk
 pip install -r requirements.txt
 ```
 4. In main.py, you need to edit the phone variable to add the name of your phone, and find the correct roi_adjust values that matches your phone resolution to put the roi on the correct location as shown in picture below. This will be a trial and error
