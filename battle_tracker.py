@@ -2,6 +2,7 @@ import json
 import math
 import time
 import utils
+
 class Move:
     def __init__(self, name,move_id, move_type, category, energy):
         self.name = name
@@ -272,6 +273,55 @@ class Player:
                f"shield_count={self.shield_count}, " \
                f"switch_lock={self.switch_lock}, " \
                f"switch_lock_timer={self.switch_lock_timer})"
+
+class Match:
+    def __init__(self,alignment_count_display):
+        self.start_time = None
+        self.end_time = None
+        self.switch_timer = None
+        self.pokemon_on_field = {'my': None, 'opp': None}
+        self.all_pokemon_fainted = {'my': False, 'opp': False}
+        # load alignment info
+        self.alignment_df = utils.load_alignment_df(alignment_count_display)
+
+    def start_match(self):
+        self.start_time = time.time()
+
+    def end_match(self):
+        self.end_time = time.time()
+
+    def match_started(self):
+        return self.start_time is not None
+
+    def match_ended(self):
+        # Check if the match has ended due to time up or all pokemon of either player have fainted
+        return self.current_time >= 240 or self.all_pokemon_fainted['my'] or self.all_pokemon_fainted['opp']
+    
+    def time_elapsed(self):
+        if self.start_time is None:
+            return None
+        if self.end_time is not None:
+            return self.end_time - self.start_time
+        return time.time() - self.start_time
+
+    def update_pokemon_on_field(self, my_pokemon, opp_pokemon):
+        self.pokemon_on_field['my'] = my_pokemon
+        self.pokemon_on_field['opp'] = opp_pokemon
+
+    def set_all_pokemon_fainted(self, player):
+        self.all_pokemon_fainted[player] = True
+
+    def calculate_correct_alignment(self,my_player,opp_player):
+        my_pk = my_player.pokemons[my_player.current_pokemon_index][my_player.ui_chosen_pk_ind[my_player.current_pokemon_index]]
+        opp_pk = opp_player.pokemons[opp_player.current_pokemon_index ][opp_player.ui_chosen_pk_ind[opp_player.current_pokemon_index]]
+        my_count = my_pk.fast_moves[my_pk.ui_chosen_moveset[0]].move_turns
+        opp_count = opp_pk.fast_moves[opp_pk.ui_chosen_moveset[0]].move_turns
+        try:
+            correct_count = self.alignment_df.loc[int(my_count), str(opp_count)]
+        except KeyError:
+            correct_count = "Unknown"
+        return correct_count
+        
 
 if __name__ == "__main__":
     pokemon_names = utils.load_pokemon_names()

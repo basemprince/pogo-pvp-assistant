@@ -218,6 +218,25 @@ def connect_to_device(ip):
     return client
 
 
+def get_roi_images(frame,roi_dict):
+    roi_images = {}
+    for roi_name,roi in roi_dict.items():
+        roi_images[roi_name] = frame[roi[1]:roi[1] + roi[3], roi[0]:roi[0] + roi[2]]
+    return roi_images
+
+
+def draw_display_frames(frame, roi_dict, feed_res, roi_color=(0, 0, 0), roi_thick=12):
+    for i,roi in enumerate(roi_dict.values()):
+        if i == 0:
+            frame_with_rois = frame.copy()
+        frame_with_rois = cv2.rectangle(frame_with_rois, (roi[0], roi[1]), (roi[0] + roi[2], roi[1] + roi[3]), roi_color, roi_thick)
+    
+    resized_image = cv2.resize(frame_with_rois, feed_res, interpolation=cv2.INTER_AREA)
+    resized_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
+    pil_img  = Image.fromarray(resized_image)
+    return pil_img
+
+
 # Function to find the closest Pokémon name
 def closest_name(name, names_list):
     closest_name = get_close_matches(name, names_list, n=1, cutoff=0.6)

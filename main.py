@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import cv2
@@ -13,15 +13,14 @@ from tesserocr import PyTessBaseAPI, PSM
 from PIL import Image
 import utils
 import tkinter as tk
-from tkinter import ttk
 import customtkinter as ctk
 import threading
 import pickle
-import math
-import match
+import battle_tracker
+from roi_ui import RoiSelector
 
 
-# In[ ]:
+# In[2]:
 
 
 # parameters
@@ -32,10 +31,9 @@ update_timer = 1
 alignment_count_display = 5
 update_json_files = False
 update_pokemon = False
-phones = ['Pixel 3 XL', 'Pixel 7 Pro','Nexus 6P']
 
 
-# In[ ]:
+# In[3]:
 
 
 # Load the JSON files
@@ -54,28 +52,36 @@ if update_pokemon:
     utils.update_move_info()
 # connect to phone
 client = utils.connect_to_device("127.0.0.1:5037")
-phone_t = phones.index(client.device_name)
 
 
-# In[ ]:
+# In[4]:
 
 
-roi_adjust =[[50,370,860],[50,350,860],[50,370,860]]
-roi_adjust = roi_adjust[phone_t]
-roi_dim = [530,50]
-my_roi = (roi_adjust[0], roi_adjust[1], roi_dim[0], roi_dim[1])
-opp_roi = (roi_adjust[2], roi_adjust[1], roi_dim[0], roi_dim[1])
-center = client.resolution[0]/2
-msg_width = 850
-msgs_roi = (int(center-msg_width/2),995,msg_width,150)
-# Load the template images in color format
-my_pokemon_template_color = cv2.imread('templates/my-temp2.png')
-opp_pokemon_template_color = cv2.imread('templates/opp-temp2.png')
-my_pokemon_template_color = cv2.resize(my_pokemon_template_color, (269, 77))
-opp_pokemon_template_color = cv2.resize(opp_pokemon_template_color, (269, 77))
-# Convert the template images to grayscale
-my_pokemon_template = cv2.cvtColor(my_pokemon_template_color, cv2.COLOR_BGR2GRAY)
-opp_pokemon_template = cv2.cvtColor(opp_pokemon_template_color, cv2.COLOR_BGR2GRAY)
+roi_color = (0, 0, 0)  
+roi_thick = 12
+phone_data = utils.load_phone_data(client.device_name)
+
+if phone_data is None:
+    app = RoiSelector(client)
+    app.update_ui(client)
+    app.mainloop()
+    phone_data = utils.load_phone_data(client.device_name)
+
+if phone_data is not None:
+    my_roi = phone_data['my_roi']
+    opp_roi = phone_data['opp_roi']
+    msgs_roi = phone_data['msgs_roi']
+    my_pokeballs_roi = phone_data['my_pokeballs_roi']
+    opp_pokeballs_roi = phone_data['opp_pokeballs_roi']
+    my_typing_roi = phone_data['my_typing_roi']
+    opp_typing_roi = phone_data['opp_typing_roi']
+else:
+    print("Failed to retrieve phone data")
+    
+roi_dict = {'my_roi': my_roi, 'opp_roi': opp_roi, 'msgs_roi': msgs_roi,
+            'my_pokeballs_roi': my_pokeballs_roi, 'opp_pokeballs_roi': opp_pokeballs_roi,
+            'my_typing_roi':my_typing_roi, 'opp_typing_roi':opp_typing_roi}
+
 feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
 cup_names_combo_box = ['Great League', 'Ultra League', 'Master League']
 save_cup_names = []
@@ -97,7 +103,7 @@ else:
     cup_names_combo_box.extend(avail_cups)
 
 
-# In[ ]:
+# In[5]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
@@ -158,7 +164,12 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.prev_my_roi_img = np.array([])
         self.prev_opp_roi_img = np.array([])
+        self.prev_my_pokeballs_img = np.array([])
+        self.prev_opp_pokeballs_img = np.array([])
+        self.prev_my_typing_img = np.array([])
+        self.prev_opp_typing_img = np.array([])
         self.threshold = 500
+        self.high_thresh = 1000
         
         self.my_info_match = None
         self.opp_info_match = None
@@ -167,8 +178,6 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.move_type = ['fast_move','charge_move1','charge_move2']
         self.move_type_disp = ['Fast Move','Charge Move 1','Charge Move 2']
-        self.my_energy_start = time.time()
-        self.opp_energy_start = time.time()
 
         self.league_detector = utils.LeagueDetector()
         
@@ -177,8 +186,9 @@ class PokemonBattleAssistant(ctk.CTk):
         self.record_vid = False
         self.out = None
 
-        self.my_player = match.Player('me')
-        self.opp_player = match.Player('opp')
+        self.my_player = battle_tracker.Player('me')
+        self.opp_player = battle_tracker.Player('opp')
+        self.match = battle_tracker.Match(alignment_count_display)
 
         self.frames_map = {'me': self.my_pokemon_frames, 'opp': self.opp_pokemon_frames}
         self.player_map = {'me': self.my_player, 'opp': self.opp_player}
@@ -229,7 +239,6 @@ class PokemonBattleAssistant(ctk.CTk):
             fast_mv_label = self.find_label(side,num,'fast_move')
             fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].fast_moves[mv_recom[0]]
             fast_mv_label.set(fast_mv.move_count_str())
-
         else:
             fast_mv = choice.split(' - ')[0].upper().replace(" ", "_")
             self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0] = fast_mv
@@ -325,6 +334,8 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.prev_my_roi_img = np.array([])
         self.prev_opp_roi_img = np.array([])
+        self.prev_my_pokeballs_img = np.array([])
+        self.prev_opp_pokeballs_img = np.array([])
         self.my_info_match = None
         self.opp_info_match = None
         self.league = None
@@ -332,8 +343,9 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.league_combobox.set('choose league')
 
-        self.my_player = match.Player('me')
-        self.opp_player = match.Player('opp')
+        self.my_player = battle_tracker.Player('me')
+        self.opp_player = battle_tracker.Player('opp')
+        self.match = battle_tracker.Match(alignment_count_display)
         self.league_detector = utils.LeagueDetector()
         self.player_map = {'me': self.my_player, 'opp': self.opp_player}
 
@@ -357,8 +369,8 @@ class PokemonBattleAssistant(ctk.CTk):
 
     def vid_stream(self):
         while self.record_vid:
-            screen = client.last_frame
-            resized_frame = cv2.resize(screen, self.vid_res)
+            frame = client.last_frame
+            resized_frame = cv2.resize(frame, self.vid_res)
             self.out.write(resized_frame)
             time.sleep(0.01) 
 
@@ -394,28 +406,27 @@ class PokemonBattleAssistant(ctk.CTk):
             else:
                 self.highlight_off(frame)
         
+    def ocr_detect(self,img):
+        with PyTessBaseAPI(psm=PSM.AUTO_OSD) as api:
+            api.SetImage(img)
+            api.Recognize()
+            return api.GetUTF8Text()
+
     def update_ui(self,client):
         time_start = time.time()
-        screen = client.last_frame
-        # screen = cv2.imread('templates/screenshot.png')
-        if screen is not None:
-            my_roi_img = screen[my_roi[1]:my_roi[1] + my_roi[3], my_roi[0]:my_roi[0] + my_roi[2]]
-            opp_roi_img = screen[opp_roi[1]:opp_roi[1] + opp_roi[3], opp_roi[0]:opp_roi[0] + opp_roi[2]]
-            msgs_roi_img = screen[msgs_roi[1]:msgs_roi[1] + msgs_roi[3], msgs_roi[0]:msgs_roi[0] + msgs_roi[2]]
+        frame = client.last_frame
+        # frame = cv2.imread('templates/screenshot.png')
+        if frame is not None:
 
-            if utils.mse(my_roi_img, self.prev_my_roi_img) > self.threshold or utils.mse(opp_roi_img, self.prev_opp_roi_img) > self.threshold:
-                self.prev_my_roi_img, thresh_my_roi = utils.process_image(my_roi_img)
-                self.prev_opp_roi_img, thresh_opp_roi = utils.process_image(opp_roi_img)
-                self.prev_msg_roi_img, thresh_msg_roi = utils.process_image(msgs_roi_img)
+            roi_images = utils.get_roi_images(frame,roi_dict)
 
-                with PyTessBaseAPI(psm=PSM.AUTO_OSD) as api:
-                    api.SetImage(thresh_my_roi)
-                    api.Recognize()
-                    my_info = api.GetUTF8Text()
+            if utils.mse(roi_images['my_roi'], self.prev_my_roi_img) > self.threshold or utils.mse(roi_images['opp_roi'], self.prev_opp_roi_img) > self.threshold:
+                self.prev_my_roi_img, thresh_my_roi = utils.process_image(roi_images['my_roi'])
+                self.prev_opp_roi_img, thresh_opp_roi = utils.process_image(roi_images['opp_roi'])
+                self.prev_msg_roi_img, thresh_msg_roi = utils.process_image(roi_images['msgs_roi'])
 
-                    api.SetImage(thresh_opp_roi)
-                    api.Recognize()
-                    opp_info = api.GetUTF8Text()
+                my_info = self.ocr_detect(thresh_my_roi)
+                opp_info = self.ocr_detect(thresh_opp_roi)
 
                 if print_out:
                     print("My Info:", my_info)
@@ -433,15 +444,42 @@ class PokemonBattleAssistant(ctk.CTk):
 
                 if self.league:
                     if self.my_info_match and self.opp_info_match:
+                        
+                        # if utils.mse(roi_images['my_pokeballs_roi'], self.prev_my_pokeballs_img) > self.threshold:
+                        #     print('my pokemon fainted detected')
+                        #     self.prev_my_pokeballs_img = roi_images['my_pokeballs_roi']
+                        #     self.my_player.fainted_pokemon +=1
+                        #     self.opp_player.pokemon_energy_updater(False)
+                        #     self.my_player.pokemon_energy_updater(False)
+                        # if utils.mse(roi_images['opp_pokeballs_roi'], self.prev_opp_pokeballs_img) > self.threshold:
+                        #     print('opponent pokemon fainted detected')
+                        #     self.prev_opp_pokeballs_img = roi_images['opp_pokeballs_roi']
+                        #     self.opp_player.fainted_pokemon +=1
+                        #     self.opp_player.pokemon_energy_updater(False)
+                        #     self.my_player.pokemon_energy_updater(False)
+
+                        # if utils.mse(roi_images['my_typing_roi'], self.prev_my_typing_img) > self.high_thresh:
+                        #     print('my pokemon switch detected')
+                        #     self.prev_my_typing_img = roi_images['my_typing_roi']
+                        #     self.my_player.pokemon_energy_updater(False)
+                        # if utils.mse(roi_images['opp_typing_roi'], self.prev_opp_typing_img) > self.high_thresh:
+                        #     print('opponent pokemon switch detected')
+                        #     self.prev_opp_typing_img = roi_images['opp_typing_roi']
+                        #     self.opp_player.pokemon_energy_updater(False)
+
                         my_info_name = self.my_info_match.group(0)
                         opp_info_name = self.opp_info_match.group(0)
 
-                        my_pk, my_pk_name = match.load_pk_data(my_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
-                        opp_pk, opp_pk_name = match.load_pk_data(opp_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
+                        my_pk, my_pk_name = battle_tracker.load_pk_data(my_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
+                        opp_pk, opp_pk_name = battle_tracker.load_pk_data(opp_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
 
 
                         update_me = self.my_player.add_pokemon(my_pk,my_pk_name)
                         update_opp = self.opp_player.add_pokemon(opp_pk,opp_pk_name)
+
+                        if not self.match.match_started() and self.my_player.pokemon_count !=0:
+                            print('Battle Started')
+                            self.match.start_match()
 
                         self.my_player.start_update()
                         self.opp_player.start_update()
@@ -457,46 +495,25 @@ class PokemonBattleAssistant(ctk.CTk):
                         self.opp_player.pokemon_energy_updater(False)
                         self.my_player.pokemon_energy_updater(False)
                         
-                        with PyTessBaseAPI(psm=PSM.AUTO_OSD) as api:
-                            api.SetImage(thresh_msg_roi)
-                            api.Recognize()
-                            msg_info = api.GetUTF8Text()
-                            pk, chr_mv = self.extract_thrown_move(msg_info)
-                            # print('------------------------',pk , '-----', chr_mv)
+                        msg_info = self.ocr_detect(thresh_msg_roi)
+                        pk, chr_mv = self.extract_thrown_move(msg_info)
 
-            if self.league:
+        
+            if self.match.match_started():
                 self.my_player.pokemon_energy_updater(True)
                 self.opp_player.pokemon_energy_updater(True)
                 self.charge_move_progress()
-                # print('opp', self.opp_player.pokemons[self.opp_player.current_pokemon_index][0].time_on_field)
-                # print('player', self.my_player.pokemons[self.my_player.current_pokemon_index][0].time_on_field)
-
-            # opponent switch lock timer
-            if self.opp_player.switch_lock:
-                self.opp_player.countdown_switch_lock()
-                self.switch_timer_label.configure(text=f"Switch Timer: {self.opp_player.switch_lock_timer}")
-
-            # Draw rectangles around the ROI
-            roi_color = (0, 0, 0)  
-            roi_thick = 12
-            screen_with_rois = cv2.rectangle(screen.copy(), (my_roi[0], my_roi[1]), (my_roi[0] + my_roi[2], my_roi[1] + my_roi[3]), roi_color, roi_thick)
-            screen_with_rois = cv2.rectangle(screen_with_rois, (opp_roi[0], opp_roi[1]), (opp_roi[0] + opp_roi[2], opp_roi[1] + opp_roi[3]), roi_color, roi_thick)
-            screen_with_rois = cv2.rectangle(screen_with_rois, (msgs_roi[0], msgs_roi[1]), (msgs_roi[0] + msgs_roi[2], msgs_roi[1] + msgs_roi[3]), roi_color, roi_thick)
-
-            if self.opp_player.current_pokemon_index is not None and self.my_player.current_pokemon_index is not None:
-                my_count = self.find_label('me',self.my_player.current_pokemon_index,'fast_move').get()[-1]
-                opp_count = self.find_label('opp',self.opp_player.current_pokemon_index,'fast_move').get()[-1]
-                try:
-                    correct_count = alignment_df.loc[int(my_count), opp_count]
-                except KeyError:
-                    correct_count = "Unknown"
+                correct_count = self.match.calculate_correct_alignment(self.my_player,self.opp_player)
                 self.correct_alignment_label.configure(text=f"Correct Alignemnt: {correct_count}")
-            
+                # opponent switch lock timer
+                if self.opp_player.switch_lock:
+                    self.opp_player.countdown_switch_lock()
+                    self.switch_timer_label.configure(text=f"Switch Timer: {self.opp_player.switch_lock_timer}")
+
+            # Draw ROIs and display frames
             if display_img:
-                resized_image = cv2.resize(screen_with_rois, self.feed_res, interpolation=cv2.INTER_AREA)
-                resized_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
-                pil_img  = Image.fromarray(resized_image)
-                self.my_image.configure(light_image=pil_img,dark_image=pil_img) 
+                pil_img = utils.draw_display_frames(frame, roi_dict, self.feed_res)
+                self.my_image.configure(light_image=pil_img,dark_image=pil_img)
 
         time_elapsed = time.time() - time_start
         self.elapsed_time_label.configure(text=f'{time_elapsed:0.3f}')
