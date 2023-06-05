@@ -91,6 +91,11 @@ class Pokemon:
                 if accum_energy < 0: accum_energy = 0
                 if accum_energy >= 100: accum_energy = 100 
                 charge_mv.accum_energy[fast_name] = accum_energy / charge_mv.energy
+
+    def set_energy_gain(self):
+        for fast_name in self.fast_moves.keys():
+            for charge_mv in self.charge_moves.values():
+                charge_mv.accum_energy[fast_name] = 0
                 
     def calculate_energy_used(self,used_charge_mv):
         current_time = time.time()
@@ -157,12 +162,13 @@ class Player:
         self.name = name
         self.pokemons = [None, None, None]
         self.pk_battle_name = [None, None, None]
+        self.pk_fainted = [False, False, False]
         self.recommended_pk_ind = [None, None, None]
         self.ui_chosen_pk_ind = [None, None, None]
-        self.current_pokemon_index = None  # Index of the current Pokemon on the field
+        self.current_pokemon_index = 0  # Index of the current Pokemon on the field
         self.shield_count = 2  
         self.pokemon_count = 0
-        self.fainted_pokemon = 0
+        self.pokeball_count = 3
         self.switch_lock = False
         self.switch_lock_timer = 0 
         self.switch_out_time = None
@@ -185,12 +191,14 @@ class Player:
             self.pk_battle_name[self.pokemon_count] = pk_name
             self.update_current_pokemon_index(self.pokemon_count)
             self.update_recommended_pk()
+            self.initialize_energy_gain()
             self.pokemon_count += 1
         else:
             self.pokemons[self.oldest_pokemon_index] = pokemon_list  # Replace the oldest Pokemon with the new one
             self.pk_battle_name[self.oldest_pokemon_index] = pk_name
             self.update_current_pokemon_index(self.oldest_pokemon_index)  
             self.update_recommended_pk()
+            self.initialize_energy_gain()
             self.oldest_pokemon_index = (self.oldest_pokemon_index + 1) % 3  # Update the index of the oldest Pokemon
         return True
 
@@ -205,7 +213,7 @@ class Player:
                 max_rating_index = i
 
         self.recommended_pk_ind[self.current_pokemon_index] = max_rating_index
-        self.ui_chosen_pk_ind[self.current_pokemon_index] = self.recommended_pk_ind[self.current_pokemon_index] 
+        self.ui_chosen_pk_ind[self.current_pokemon_index] = max_rating_index
 
     def pokemon_energy_updater(self,update):
         if self.initialized:
@@ -224,11 +232,18 @@ class Player:
         for pokemon in self.pokemons[self.current_pokemon_index]:
             pokemon.last_update_time = time.time()
 
+    def initialize_energy_gain(self):
+        for pokemon in self.pokemons[self.current_pokemon_index]:
+            pokemon.set_energy_gain()
+
     def update_current_pokemon_index(self, new_index):
         if new_index != self.current_pokemon_index:
+            if self.pk_fainted[self.current_pokemon_index] == True:
+                self.switch_lock = False
+            else:
+                self.switch_lock = True
             self.current_pokemon_index = new_index
             self.switch_out_time = time.time()
-            self.switch_lock = True
             self.switch_lock_timer = 60
             self.countdown_switch_lock()
  
@@ -242,7 +257,7 @@ class Player:
     def use_shield(self):
         if self.shield_count > 0:
             self.shield_count -= 1
-        
+
     def ui_helper(self,pokemon_ind=None,chosen_pk_ind=None):
         pk_name = []
         pk_fast_moves = []
@@ -283,6 +298,7 @@ class Match:
         self.all_pokemon_fainted = {'my': False, 'opp': False}
         # load alignment info
         self.alignment_df = utils.load_alignment_df(alignment_count_display)
+        self.charge_mv_event = False
 
     def start_match(self):
         self.start_time = time.time()

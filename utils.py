@@ -320,3 +320,21 @@ class LeagueDetector:
         #     print("Could not determine league")
         
         return self.league, self.league_pok
+
+
+def count_pokeballs(image):
+
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    lower_red = np.array([100, 0, 0])
+    upper_red = np.array([255, 50, 50])
+
+    mask = cv2.inRange(image_rgb, lower_red, upper_red)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+
+    mask = cv2.erode(mask, kernel, iterations=2)
+    mask = cv2.dilate(mask, kernel, iterations=2)
+
+    # Find contours in the thresholded image
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    return len(contours)
