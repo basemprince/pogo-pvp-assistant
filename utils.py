@@ -338,3 +338,73 @@ def count_pokeballs(image):
     # Find contours in the thresholded image
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return len(contours)
+
+def hex_to_rgb(hex_color):
+    hex_color = hex_color.lstrip('#')
+    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+
+def detect_emblems(image, color_range=30, print_out=False):
+    hex_colors = {
+        'normal': '#a0a29f',
+        'fire': '#fba64c',
+        'water': '#539ddf',
+        'electric': '#f2d94e',
+        'grass': '#60bd58',
+        'ice': '#76d1c1',
+        'fighting': '#d3425f',
+        'poison': '#b763cf',
+        'ground': '#da7c4d',
+        'flying': '#a1bbec',
+        'psychic': '#fa8582',
+        'bug': '#92bd2d',
+        'rock': '#c9bc8a',
+        'ghost': '#5f6dbc',
+        'dragon': '#0c6ac8',
+        'dark': '#595761',
+        'steel': '#5795a3',
+        'fairy': '#ef90e6',
+    }
+
+    color_ranges = {pokemon_type: (list(map(lambda x: max(0, x-color_range), hex_to_rgb(color))), list(map(lambda x: min(255, x+color_range), hex_to_rgb(color)))) for pokemon_type, color in hex_colors.items()}
+    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+
+    gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
+    gray = cv2.medianBlur(gray, 5)
+    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=30, minRadius=0, maxRadius=0)
+
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
+        number_of_emblems = len(circles[0, :])
+    else:
+        # print("No circles detected.")
+        return []
+
+    # Detect each type of emblem
+    type_counts = {}
+    for i in circles[0, :]:
+        # Create an empty mask
+        mask = np.zeros_like(image_rgb)
+        mask = cv2.circle(mask, (i[0], i[1]), i[2], (255,255,255), -1)
+        masked_image = cv2.bitwise_and(image_rgb, mask)
+        if print_out:
+            cv2.imshow('Detected Circles', masked_image)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+        for pokemon_type, (lower, upper) in color_ranges.items():
+            temp_mask = cv2.inRange(masked_image, np.array(lower), np.array(upper))
+            pixel_count = np.count_nonzero(temp_mask)
+            type_counts[pokemon_type] = pixel_count + type_counts.get(pokemon_type, 0)
+
+            if print_out:
+                result = cv2.bitwise_and(image, image, mask=temp_mask)
+                cv2.imshow(f'{pokemon_type} detection', result)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+
+    sorted_types = [pokemon_type for pokemon_type, pixel_count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:number_of_emblems]]
+
+    if print_out:
+        for pokemon_type in sorted_types:
+            print(f'Detected type: {pokemon_type}')
+    
+    return sorted_types

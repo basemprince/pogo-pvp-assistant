@@ -38,9 +38,10 @@ class ChargeMove(Move):
 
 
 class Pokemon:
-    def __init__(self, name,id):
+    def __init__(self, name,id,typing):
         self.species_name = name
         self.species_id = id
+        self.typing = typing
         self.fast_moves = {} 
         self.charge_moves = {}  
         self.energy = 0 # accumulated energy
@@ -142,7 +143,7 @@ def load_pk_data(info_name, pokemon_names, pokemon_details,moves_data,league_pok
     pokemon_list = []
     
     for data in move_data:
-        pokemon = Pokemon(data['speciesName'],data['speciesId'])
+        pokemon = Pokemon(data['speciesName'],data['speciesId'],data['types'])
         
         for fast_move_name in data['fastMoves']:
             pokemon.load_fast_move(moves_data,fast_move_name)
@@ -174,6 +175,7 @@ class Player:
         self.switch_out_time = None
         self.oldest_pokemon_index = 0
         self.initialized = False
+        self.on_field_typing = None
 
     def add_pokemon(self, pokemon_list,pk_name):
         if not pokemon_list:
@@ -214,6 +216,8 @@ class Player:
 
         self.recommended_pk_ind[self.current_pokemon_index] = max_rating_index
         self.ui_chosen_pk_ind[self.current_pokemon_index] = max_rating_index
+        self.on_field_typing = [element for element in self.pokemons[self.current_pokemon_index][max_rating_index].typing if element.lower() != 'none']
+
 
     def pokemon_energy_updater(self,update):
         if self.initialized:
