@@ -11,6 +11,7 @@ import cv2
 from PIL import Image
 import re
 import yaml
+from datetime import datetime
 
 def load_pokemon_names():
     # Load the JSON files
@@ -339,11 +340,12 @@ def count_pokeballs(image):
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     return len(contours)
 
-def hex_to_rgb(hex_color):
+def hex_to_bgr(hex_color):
     hex_color = hex_color.lstrip('#')
-    return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    rgb = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+    return rgb[::-1]
 
-def detect_emblems(image, color_range=30, print_out=False):
+def detect_emblems(image, color_range=30, save_images=False):
     hex_colors = {
         'normal': '#a0a29f',
         'fire': '#fba64c',
@@ -365,46 +367,61 @@ def detect_emblems(image, color_range=30, print_out=False):
         'fairy': '#ef90e6',
     }
 
-    color_ranges = {pokemon_type: (list(map(lambda x: max(0, x-color_range), hex_to_rgb(color))), list(map(lambda x: min(255, x+color_range), hex_to_rgb(color)))) for pokemon_type, color in hex_colors.items()}
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    color_ranges = {pokemon_type: (list(map(lambda x: max(0, x-color_range), hex_to_bgr(color))), list(map(lambda x: min(255, x+color_range), hex_to_bgr(color)))) for pokemon_type, color in hex_colors.items()}
 
-    gray = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
-    gray = cv2.medianBlur(gray, 5)
-    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, 1, 20, param1=50, param2=30, minRadius=0, maxRadius=0)
+    gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    gray = cv2.GaussianBlur(gray, (7, 7), 0)
+    gray = cv2.Canny(gray, 10, 80)
+
+    gray = cv2.dilate(gray, None, iterations=2)
+    gray = cv2.erode(gray, None, iterations=1)
+
+    if save_images:
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        filename = f'debug/gray_{timestamp}.png'
+        filename1 = f'debug/gray_{timestamp}_1.png'
+        try:
+            cv2.imwrite(filename, gray)
+            cv2.imwrite(filename1,image)
+        except Exception as e:
+            pass
+
+    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=1, minDist=10, param1=30, param2=13, minRadius=30, maxRadius=40)
 
     if circles is not None:
         circles = np.uint16(np.around(circles))
-        number_of_emblems = len(circles[0, :])
+        # Sort the circles by their radius, from largest to smallest
+        sorted_circles = sorted(circles[0], key=lambda x: -float(x[2]))
+        top_circles = sorted_circles[:2]
+        number_of_emblems = len(top_circles)
     else:
-        # print("No circles detected.")
         return []
 
     # Detect each type of emblem
     type_counts = {}
     for i in circles[0, :]:
         # Create an empty mask
-        mask = np.zeros_like(image_rgb)
+        mask = np.zeros_like(image)
         mask = cv2.circle(mask, (i[0], i[1]), i[2], (255,255,255), -1)
-        masked_image = cv2.bitwise_and(image_rgb, mask)
-        if print_out:
-            cv2.imshow('Detected Circles', masked_image)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
+        masked_image = cv2.bitwise_and(image, mask)
+        # if save_images:
+        #     timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+        #     filename = f'debug/detected_circle_{timestamp}.png'
+        #     try:
+        #         cv2.imwrite(filename, masked_image)
+        #     except Exception as e:
+        #         pass
+
         for pokemon_type, (lower, upper) in color_ranges.items():
             temp_mask = cv2.inRange(masked_image, np.array(lower), np.array(upper))
             pixel_count = np.count_nonzero(temp_mask)
             type_counts[pokemon_type] = pixel_count + type_counts.get(pokemon_type, 0)
 
-            if print_out:
-                result = cv2.bitwise_and(image, image, mask=temp_mask)
-                cv2.imshow(f'{pokemon_type} detection', result)
-                cv2.waitKey(0)
-                cv2.destroyAllWindows()
+            # if save_images:
+            #     result = cv2.bitwise_and(image, image, mask=temp_mask)
+            #     timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+            #     cv2.imwrite(f'debug/{pokemon_type}_detection_{timestamp}.png', result)
 
     sorted_types = [pokemon_type for pokemon_type, pixel_count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:number_of_emblems]]
-
-    if print_out:
-        for pokemon_type in sorted_types:
-            print(f'Detected type: {pokemon_type}')
     
-    return sorted_types
+    return sorted(sorted_types)
