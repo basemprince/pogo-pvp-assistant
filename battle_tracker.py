@@ -10,6 +10,7 @@ class Move:
         self.move_type = move_type  # move's type (Ghost, Steel, Grass, etc.)
         self.category = category  # Fast or Charge
         self.energy = energy  # For fast moves, it's energy gain. For charge moves, it's energy cost.
+        self.max_move_count = 100 // self.energy
 
     def __repr__(self):
         return f"{self.__class__.__name__}(name={self.name}, move_type={self.move_type}, category={self.category}, energy={self.energy})"
@@ -20,6 +21,8 @@ class FastMove(Move):
         super().__init__(name, move_id, move_type, "fast", energy_gain)
         self.cooldown = cooldown
         self.move_turns = int(self.cooldown/500)
+        self.cap_time = round((self.max_move_count * self.cooldown) / 1000 * 2) / 2
+
     def __repr__(self):
         return f"{self.__class__.__name__}(name={self.name}, move_type={self.move_type}, category={self.category}, energy={self.energy}, cooldown={self.cooldown}, move_turns={self.move_turns})"
     def move_count_str(self):
@@ -86,11 +89,14 @@ class Pokemon:
     
     def calculate_energy_gain(self):
         for fast_name, fast_mv in self.fast_moves.items():
+            # print(f'fast_move: {fast_name}, max_move_count: {fast_mv.max_move_count}, cap_time: {fast_mv.cap_time}')
+            # effective_time_on_field = min(self.time_on_field, fast_mv.cap_time)
             accum_move_count = math.ceil(self.time_on_field * 1000 / fast_mv.cooldown)
+            accum_energy = (accum_move_count * fast_mv.energy) - self.used_energy
+            if accum_energy < 0: accum_energy = 0
+            if accum_energy >= 100: accum_energy = 100 
+            
             for charge_mv in self.charge_moves.values():
-                accum_energy = (accum_move_count * fast_mv.energy) - self.used_energy
-                if accum_energy < 0: accum_energy = 0
-                if accum_energy >= 100: accum_energy = 100 
                 charge_mv.accum_energy[fast_name] = accum_energy / charge_mv.energy
 
     def set_energy_gain(self):
