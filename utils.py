@@ -12,6 +12,8 @@ from PIL import Image
 import re
 import yaml
 from datetime import datetime
+import pickle
+import shutil
 
 def load_pokemon_names():
     # Load the JSON files
@@ -62,42 +64,81 @@ def find_correct_alignment(df, row, col, counts):
     first_count, step = move_counts[:2]
     return [first_count + step * i for i in range(counts)]
 
+import shutil
+
 def update_json_files():
-    repo_owner = 'pvpoke'
-    repo_name = 'pvpoke'
-    folder_path = 'src/data/rankings/all/overall/'
-    destination_directory = 'json_files/rankings'
+    try:
+        repo_owner = 'pvpoke'
+        repo_name = 'pvpoke'
+        folder_path = 'src/data/rankings/all/overall/'
+        destination_directory = 'json_files/rankings'
 
-    headers = {'Accept': 'application/vnd.github+json'}
-    url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{folder_path}'
-    response = requests.get(url, headers=headers)
+        # Delete all files in the destination directory
+        if os.path.isdir(destination_directory):
+            shutil.rmtree(destination_directory)
+        os.makedirs(destination_directory)
 
-    if response.status_code == 200:
-        files = response.json()
-        for file in files:
-            if file['type'] == 'file' and file['name'].endswith('.json'):
-                download_url = file['download_url']
-                file_name = file['name']
-                
-                if file_name == 'rankings-1500.json':
-                    new_file_name = 'Great League.json'
-                elif file_name == 'rankings-2500.json':
-                    new_file_name = 'Ultra League.json'
-                elif file_name == 'rankings-10000.json':
-                    new_file_name = 'Master League.json'
-                elif file_name == 'rankings-500.json':
-                    new_file_name = 'Little Cup.json'
-                else:
-                    new_file_name = file_name
+        headers = {'Accept': 'application/vnd.github+json'}
+        url = f'https://api.github.com/repos/{repo_owner}/{repo_name}/contents/{folder_path}'
+        response = requests.get(url, headers=headers)
 
-                local_path = os.path.join(destination_directory, new_file_name)
+        if response.status_code == 200:
+            files = response.json()
+            for file in files:
+                if file['type'] == 'file' and file['name'].endswith('.json'):
+                    download_url = file['download_url']
+                    file_name = file['name']
 
-                file_content = requests.get(download_url).content
-                with open(local_path, 'wb') as f:
-                    f.write(file_content)
-                    print(f"Downloaded {local_path}")
-    else:
-        print(f"Failed to get folder content")
+                    if file_name == 'rankings-1500.json':
+                        new_file_name = 'Great League.json'
+                    elif file_name == 'rankings-2500.json':
+                        new_file_name = 'Ultra League.json'
+                    elif file_name == 'rankings-10000.json':
+                        new_file_name = 'Master League.json'
+                    elif file_name == 'rankings-500.json':
+                        new_file_name = 'Little Cup.json'
+                    else:
+                        new_file_name = file_name
+
+                    local_path = os.path.join(destination_directory, new_file_name)
+
+                    file_content = requests.get(download_url).content
+                    with open(local_path, 'wb') as f:
+                        f.write(file_content)
+                        print(f"Downloaded {local_path}")
+        else:
+            print(f"Failed to get folder content, status code: {response.status_code}")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+
+
+def update_leagues_and_cups(update):
+    cup_names_combo_box = ['Great League', 'Ultra League', 'Master League']
+    save_cup_names = []
+    try:
+        if update:
+            update_json_files()
+            avail_cups = download_current_cups()
+            for cup in avail_cups:
+                cup_names_combo_box.append(cup['title'])
+                save_cup_names.append(cup['title'])
+            for format in avail_cups:
+                title = format['title']
+                cup = format['cup']
+                category = 'overall'
+                league = format['cp']
+                download_ranking_data(cup, category, league, title)
+            with open('json_files/saved_cup_names.pkl', 'wb') as f:
+                pickle.dump(save_cup_names, f)
+        else:
+            with open('json_files/saved_cup_names.pkl', 'rb') as f:
+                avail_cups = pickle.load(f)
+            cup_names_combo_box.extend(avail_cups)
+        return cup_names_combo_box
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        return cup_names_combo_box
+
 
 def download_ranking_data(cup, category, league,title):
     key = f"{cup}{category}{league}"

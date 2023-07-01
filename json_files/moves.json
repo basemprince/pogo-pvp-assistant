@@ -519,6 +519,19 @@
     "buffApplyChance": "1",
     "archetype": "Self-Debuff Nuke"
 }, {
+    "moveId": "DRAGON_ASCENT",
+    "name": "Dragon Ascent",
+    "abbreviation": "DrA",
+    "type": "flying",
+    "power": 150,
+    "energy": 70,
+    "energyGain": 0,
+    "cooldown": 500,
+	"buffs": [0, -1],
+    "buffTarget": "self",
+    "buffApplyChance": "1",
+    "archetype": "Self-Debuff Nuke"
+}, {
     "moveId": "DRAGON_BREATH",
     "name": "Dragon Breath",
     "type": "dragon",
@@ -1463,6 +1476,16 @@
     "energy": 0,
     "energyGain": 10,
     "cooldown": 1500,
+    "archetype": "General"
+},  {
+    "moveId": "MAGMA_STORM",
+    "name": "Magma Storm",
+    "abbreviation": "MgS",
+    "type": "fire",
+    "power": 65,
+    "energy": 40,
+    "energyGain": 0,
+    "cooldown": 500,
     "archetype": "General"
 }, {
     "moveId": "MAGNET_BOMB",

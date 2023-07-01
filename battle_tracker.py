@@ -212,18 +212,40 @@ class Player:
 
 
     def update_recommended_pk(self):
-        max_rating_index = None
-        max_rating = -1  # Initialize to a low value
+        try:
+            if hasattr(self, 'pokemons') and hasattr(self, 'current_pokemon_index'):
+                if self.current_pokemon_index < len(self.pokemons):
+                    if len(self.pokemons[self.current_pokemon_index]) > 1:
+                        max_rating_index = 0
+                    else:
+                        max_rating_index = None
+                    max_rating = -1  # Initialize to a low value
 
-        for i, pk in enumerate(self.pokemons[self.current_pokemon_index]):
-            if pk.rating is not None and pk.rating > max_rating:
-                max_rating = pk.rating
-                max_rating_index = i
+                    for i, pk in enumerate(self.pokemons[self.current_pokemon_index]):
+                        if hasattr(pk, 'rating') and pk.rating is not None and pk.rating > max_rating:
+                            max_rating = pk.rating
+                            max_rating_index = i
 
-        self.recommended_pk_ind[self.current_pokemon_index] = max_rating_index
-        self.ui_chosen_pk_ind[self.current_pokemon_index] = max_rating_index
-        self.on_field_typing = [element for element in self.pokemons[self.current_pokemon_index][max_rating_index].typing if element.lower() != 'none']
+                    if hasattr(self, 'recommended_pk_ind') and self.current_pokemon_index < len(self.recommended_pk_ind):
+                        self.recommended_pk_ind[self.current_pokemon_index] = max_rating_index
+                    else:
+                        print("Error: 'recommended_pk_ind' attribute does not exist or current_pokemon_index is out of bounds.")
 
+                    if hasattr(self, 'ui_chosen_pk_ind') and self.current_pokemon_index < len(self.ui_chosen_pk_ind):
+                        self.ui_chosen_pk_ind[self.current_pokemon_index] = max_rating_index
+                    else:
+                        print("Error: 'ui_chosen_pk_ind' attribute does not exist or current_pokemon_index is out of bounds.")
+
+                    if self.current_pokemon_index is not None and max_rating_index is not None and max_rating_index < len(self.pokemons[self.current_pokemon_index]) and hasattr(self.pokemons[self.current_pokemon_index][max_rating_index], 'typing'):
+                        self.on_field_typing = [element for element in self.pokemons[self.current_pokemon_index][max_rating_index].typing if element.lower() != 'none']
+                    else:
+                        print("Error: current_pokemon_index or max_rating_index is None or out of bounds, or 'typing' attribute does not exist.")
+                else:
+                    print("Error: current_pokemon_index is out of bounds in pokemons.")
+            else:
+                print("Error: 'pokemons' or 'current_pokemon_index' attribute does not exist.")
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
 
     def pokemon_energy_updater(self,update):
         if self.initialized:
@@ -239,8 +261,19 @@ class Player:
                 pokemon.calculate_energy_used(charge_mv)
 
     def start_update(self):
-        for pokemon in self.pokemons[self.current_pokemon_index]:
-            pokemon.last_update_time = time.time()
+        try:
+            if not self.pokemons or self.current_pokemon_index >= len(self.pokemons):
+                print("Warning: No pokemons found or invalid current pokemon index.")
+                return
+
+            for pokemon in self.pokemons[self.current_pokemon_index]:
+                if hasattr(pokemon, 'last_update_time'):
+                    pokemon.last_update_time = time.time()
+                else:
+                    print(f"Warning: Pokemon object does not have attribute 'last_update_time'")
+        except Exception as e:
+            print(f"Error in start_update: {str(e)}")
+
 
     def initialize_energy_gain(self):
         for pokemon in self.pokemons[self.current_pokemon_index]:
@@ -337,17 +370,40 @@ class Match:
     def set_all_pokemon_fainted(self, player):
         self.all_pokemon_fainted[player] = True
 
-    def calculate_correct_alignment(self,my_player,opp_player):
-        my_pk = my_player.pokemons[my_player.current_pokemon_index][my_player.ui_chosen_pk_ind[my_player.current_pokemon_index]]
-        opp_pk = opp_player.pokemons[opp_player.current_pokemon_index ][opp_player.ui_chosen_pk_ind[opp_player.current_pokemon_index]]
-        my_count = my_pk.fast_moves[my_pk.ui_chosen_moveset[0]].move_turns
-        opp_count = opp_pk.fast_moves[opp_pk.ui_chosen_moveset[0]].move_turns
+    def calculate_correct_alignment(self, my_player, opp_player):
         try:
-            correct_count = self.alignment_df.loc[int(my_count), str(opp_count)]
-        except KeyError:
-            correct_count = "Unknown"
-        return correct_count
-        
+            if hasattr(my_player, 'pokemons') and hasattr(my_player, 'current_pokemon_index') and hasattr(my_player, 'ui_chosen_pk_ind'):
+                if my_player.current_pokemon_index < len(my_player.pokemons) and my_player.current_pokemon_index < len(my_player.ui_chosen_pk_ind):
+                    my_pk = my_player.pokemons[my_player.current_pokemon_index][my_player.ui_chosen_pk_ind[my_player.current_pokemon_index]]
+                    if hasattr(my_pk, 'fast_moves') and hasattr(my_pk, 'ui_chosen_moveset') and len(my_pk.ui_chosen_moveset) > 0 and my_pk.ui_chosen_moveset[0] in my_pk.fast_moves:
+                        my_count = my_pk.fast_moves[my_pk.ui_chosen_moveset[0]].move_turns
+                    else:
+                        print("Error: my_pk does not have required attributes or the required fast move is not found.")
+                else:
+                    print("Error: current_pokemon_index is out of bounds in my_player.")
+            else:
+                print("Error: my_player does not have required attributes.")
+
+            if hasattr(opp_player, 'pokemons') and hasattr(opp_player, 'current_pokemon_index') and hasattr(opp_player, 'ui_chosen_pk_ind'):
+                if opp_player.current_pokemon_index < len(opp_player.pokemons) and opp_player.current_pokemon_index < len(opp_player.ui_chosen_pk_ind):
+                    opp_pk = opp_player.pokemons[opp_player.current_pokemon_index][opp_player.ui_chosen_pk_ind[opp_player.current_pokemon_index]]
+                    if hasattr(opp_pk, 'fast_moves') and hasattr(opp_pk, 'ui_chosen_moveset') and len(opp_pk.ui_chosen_moveset) > 0 and opp_pk.ui_chosen_moveset[0] in opp_pk.fast_moves:
+                        opp_count = opp_pk.fast_moves[opp_pk.ui_chosen_moveset[0]].move_turns
+                    else:
+                        print("Error: opp_pk does not have required attributes or the required fast move is not found.")
+                else:
+                    print("Error: current_pokemon_index is out of bounds in opp_player.")
+            else:
+                print("Error: opp_player does not have required attributes.")
+
+            try:
+                correct_count = self.alignment_df.loc[int(my_count), str(opp_count)]
+            except KeyError:
+                correct_count = "Unknown"
+            return correct_count
+        except Exception as e:
+            print(f"An error occurred: {str(e)}")
+
 
 if __name__ == "__main__":
     pokemon_names = utils.load_pokemon_names()
