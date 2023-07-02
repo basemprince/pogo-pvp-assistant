@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import cv2
@@ -16,10 +16,10 @@ import tkinter as tk
 import customtkinter as ctk
 import threading
 import battle_tracker
-from roi_ui import RoiSelector
+import sys
 
 
-# In[ ]:
+# In[2]:
 
 
 # parameters
@@ -28,11 +28,13 @@ display_img = True
 img_scale = 0.1
 update_timer = 50
 alignment_count_display = 5
+roi_color = (0, 0, 0)  
+roi_thick = 12
 update_json_files = False
 update_pokemon = False
 
 
-# In[ ]:
+# In[3]:
 
 
 # Load the JSON files
@@ -46,43 +48,19 @@ alignment_df = utils.load_alignment_df(alignment_count_display)
 if update_pokemon:
     utils.update_pk_info()
     utils.update_move_info()
-# connect to phone
-client = utils.connect_to_device("127.0.0.1:5037")
-
-
-# In[ ]:
-
-
-roi_color = (0, 0, 0)  
-roi_thick = 12
-phone_data = utils.load_phone_data(client.device_name)
-
-if phone_data is None:
-    app = RoiSelector(client)
-    app.update_ui(client)
-    app.mainloop()
-    phone_data = utils.load_phone_data(client.device_name)
-
-if phone_data is not None:
-    my_roi = phone_data['my_roi']
-    opp_roi = phone_data['opp_roi']
-    msgs_roi = phone_data['msgs_roi']
-    my_pokeballs_roi = phone_data['my_pokeballs_roi']
-    opp_pokeballs_roi = phone_data['opp_pokeballs_roi']
-    my_typing_roi = phone_data['my_typing_roi']
-    opp_typing_roi = phone_data['opp_typing_roi']
-else:
-    print("Failed to retrieve phone data")
-    
-roi_dict = {'my_roi': my_roi, 'opp_roi': opp_roi, 'msgs_roi': msgs_roi,
-            'my_pokeballs_roi': my_pokeballs_roi, 'opp_pokeballs_roi': opp_pokeballs_roi,
-            'my_typing_roi':my_typing_roi, 'opp_typing_roi':opp_typing_roi}
-
-feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
 cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
 
 
-# In[ ]:
+# In[4]:
+
+
+# connect to phone
+client = utils.connect_to_device("127.0.0.1:5037")
+roi_dict = utils.get_phone_data(client)
+feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
+
+
+# In[9]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
@@ -136,14 +114,28 @@ class PokemonBattleAssistant(ctk.CTk):
         self.elapsed_time_label = ctk.CTkLabel(mainframe, text="0")
         self.elapsed_time_label.grid(column=0, row=5, sticky='E', padx=0, pady=0) 
 
+        # frame to hold command line output and image
+        output_image_frame = ctk.CTkFrame(mainframe)
+        output_image_frame.grid(column=0, row=4, sticky=(tk.W, tk.E), padx=0, pady=0)
+        output_image_frame.grid_columnconfigure(0, weight=1)
+        output_image_frame.grid_columnconfigure(1, weight=1)
+
+        # Add command line output 
+        self.command_line_output = tk.Text(output_image_frame, bg='black', fg='white', height=pil_image.height/17,width=110)
+        self.command_line_output.grid(column=0, row=0, sticky=(tk.W, tk.E), padx=0, pady=0)
+
+        # Add image
         if display_img:
             self.my_image = ctk.CTkImage(light_image=pil_image,dark_image=pil_image, size=feed_res)
-            self.image_label = ctk.CTkLabel(mainframe, text='',image=self.my_image)
-            self.image_label.grid(column=0, row=4, pady=0)
+            self.image_label = ctk.CTkLabel(output_image_frame, text='',image=self.my_image)
+            self.image_label.grid(column=1, row=0, pady=0)
 
         self.vid_res = (int(client.resolution[0]/2), int(client.resolution[1]/2))
         self.threshold = 500
         self.ui_reset_counter = 7
+        # to push output to UI
+        sys.stdout = utils.TextRedirector(self.command_line_output)
+        sys.stderr = utils.TextRedirector(self.command_line_output)
         self.initialize_variables()
 
     def create_pokemon_frame(self, master, num, side):
@@ -192,7 +184,6 @@ class PokemonBattleAssistant(ctk.CTk):
         self.league = None
         self.league_pok = None
         self.extract_throw_time_helper = 0
-        
 
         self.move_type = ['fast_move','charge_move1','charge_move2']
         self.move_type_disp = ['Fast Move','Charge Move 1','Charge Move 2']
@@ -206,8 +197,8 @@ class PokemonBattleAssistant(ctk.CTk):
         self.opp_player = battle_tracker.Player('opp')
         self.match = battle_tracker.Match(alignment_count_display)
 
-        self.frames_map = {'me': self.my_pokemon_frames, 'opp': self.opp_pokemon_frames}
-        self.player_map = {'me': self.my_player, 'opp': self.opp_player}
+        self.frames_map = {'me': self.my_pokemon_frames,'my': self.my_pokemon_frames, 'opp': self.opp_pokemon_frames}
+        self.player_map = {'me': self.my_player, 'my': self.my_player, 'opp': self.opp_player}
 
         self.my_typing_is_correct = False
         self.opp_typing_is_correct = False
@@ -222,6 +213,7 @@ class PokemonBattleAssistant(ctk.CTk):
         else:
             current_choice = self.league_combobox.get()
             self.league_callback(current_choice)
+            print('UI has been reset and chosen league reloaded')
         for side in ['opp','me']:
             for number in range(len(self.frames_map[side])):
                 self.update_label(side,number, 'pokemon_name_label', f'Pokemon {number+1}')
@@ -428,7 +420,26 @@ class PokemonBattleAssistant(ctk.CTk):
         else:
             player.pokemon_energy_updater(True)
         return pokeballs_count
-           
+
+    def update_pokeballs_counts(self, roi_images):
+        fainted = False
+
+        for side in ['my', 'opp']:
+            pokeballs_roi = roi_images[f'{side}_pokeballs_roi']
+            player = self.player_map[side]
+
+            pokeballs_count = utils.count_pokeballs(pokeballs_roi)
+
+            if pokeballs_count < player.pokeball_count:
+                print(f"{side.capitalize()}'s Pokemon fainted!")
+                player.pokeball_count = pokeballs_count
+                player.pk_fainted[player.current_pokemon_index] = True
+                fainted = True
+
+        for player in self.player_map.values():
+            player.pokemon_energy_updater(not fainted)
+        
+
     def ocr_detect(self,img):
         with PyTessBaseAPI(psm=PSM.AUTO_OSD) as api:
             api.SetImage(img)
@@ -557,11 +568,10 @@ class PokemonBattleAssistant(ctk.CTk):
         
             if self.match.match_started():
                 if not self.match.charge_mv_event:
-                    my_pokeballs_count = self.ball_counter('me', roi_images['my_pokeballs_roi'])
-                    opp_pokeballs_count = self.ball_counter('opp', roi_images['opp_pokeballs_roi'])
+                    self.update_pokeballs_counts(roi_images)
 
-                    if my_pokeballs_count == 0 and opp_pokeballs_count == 0 and not self.match.end_time is not None:
-                        print(f'End of match detected. ui resets in {self.ui_reset_counter} seconds')
+                    if self.my_player.pokeball_count == 0 and self.opp_player.pokeball_count == 0 and not self.match.end_time is not None:
+                        print(f'End of match detected. UI resets in {self.ui_reset_counter} seconds')
                         self.match.end_match()
 
                 self.charge_move_progress()

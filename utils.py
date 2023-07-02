@@ -14,6 +14,8 @@ import yaml
 from datetime import datetime
 import pickle
 import shutil
+from roi_ui import RoiSelector
+import tkinter as tk
 
 def load_pokemon_names():
     # Load the JSON files
@@ -54,7 +56,26 @@ def load_phone_data(device_name):
         return data[device_name]
     else:
         return None
-    
+
+def get_phone_data(client):
+    phone_data = load_phone_data(client.device_name)
+
+    if phone_data is None:
+        app = RoiSelector(client)
+        app.update_ui(client)
+        app.mainloop()
+        phone_data = load_phone_data(client.device_name)
+
+    if phone_data:
+        roi_dict = {roi_key: phone_data.get(roi_key) for roi_key in 
+                    ['my_roi', 'opp_roi', 'msgs_roi', 'my_pokeballs_roi', 
+                     'opp_pokeballs_roi', 'my_typing_roi', 'opp_typing_roi']}
+    else:
+        print("Failed to retrieve phone data")
+        return None
+
+    return roi_dict
+
 def find_correct_alignment(df, row, col, counts):
     if pd.isna(df.at[row, col]):
         return None
@@ -466,3 +487,15 @@ def detect_emblems(image, color_range=30, save_images=False):
     sorted_types = [pokemon_type for pokemon_type, pixel_count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:number_of_emblems]]
     
     return sorted(sorted_types)
+
+
+class TextRedirector(object):
+    def __init__(self, widget):
+        self.widget = widget
+
+    def write(self, str):
+        self.widget.insert(tk.END, str)
+        self.widget.see(tk.END)
+
+    def flush(self):
+        pass
