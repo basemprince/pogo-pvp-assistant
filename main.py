@@ -32,6 +32,7 @@ roi_color = (0, 0, 0)
 roi_thick = 12
 update_json_files = False
 update_pokemon = False
+ui_printout = True
 
 
 # In[3]:
@@ -60,7 +61,7 @@ roi_dict = utils.get_phone_data(client)
 feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
 
 
-# In[9]:
+# In[5]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
@@ -117,25 +118,31 @@ class PokemonBattleAssistant(ctk.CTk):
         # frame to hold command line output and image
         output_image_frame = ctk.CTkFrame(mainframe)
         output_image_frame.grid(column=0, row=4, sticky=(tk.W, tk.E), padx=0, pady=0)
-        output_image_frame.grid_columnconfigure(0, weight=1)
-        output_image_frame.grid_columnconfigure(1, weight=1)
 
         # Add command line output 
-        self.command_line_output = tk.Text(output_image_frame, bg='black', fg='white', height=pil_image.height/17,width=110)
-        self.command_line_output.grid(column=0, row=0, sticky=(tk.W, tk.E), padx=0, pady=0)
+        self.command_line_output = tk.Text(output_image_frame, bg='black', fg='white', height=pil_image.height/17, width=110)
 
-        # Add image
         if display_img:
+            output_image_frame.grid_columnconfigure(0, weight=1)
+            output_image_frame.grid_columnconfigure(1, weight=1)
+            self.command_line_output.grid(column=0, row=0, sticky=(tk.W, tk.E), padx=0, pady=0)
+
+            # Add image
             self.my_image = ctk.CTkImage(light_image=pil_image,dark_image=pil_image, size=feed_res)
             self.image_label = ctk.CTkLabel(output_image_frame, text='',image=self.my_image)
             self.image_label.grid(column=1, row=0, pady=0)
+        else:
+            output_image_frame.grid_columnconfigure(0, weight=2)  # Set the weight to a larger value
+            self.command_line_output.grid(column=0, row=0, sticky=(tk.W, tk.E), padx=0, pady=0)
+
 
         self.vid_res = (int(client.resolution[0]/2), int(client.resolution[1]/2))
         self.threshold = 500
         self.ui_reset_counter = 7
         # to push output to UI
-        sys.stdout = utils.TextRedirector(self.command_line_output)
-        sys.stderr = utils.TextRedirector(self.command_line_output)
+        if ui_printout:
+            sys.stdout = utils.TextRedirector(self.command_line_output)
+            sys.stderr = utils.TextRedirector(self.command_line_output)
         self.initialize_variables()
 
     def create_pokemon_frame(self, master, num, side):
@@ -288,7 +295,7 @@ class PokemonBattleAssistant(ctk.CTk):
                     else:
                         print(f"Index {num} out of bounds in ui_chosen_pk_ind.")
         except Exception as e:
-            print(f"An error occurred: {str(e)}")
+            print(f"Error in charge_move_progress: {str(e)}")
 
     def progress_bar_color(self,energy):
         if 0 <= energy < 1:
@@ -479,7 +486,7 @@ class PokemonBattleAssistant(ctk.CTk):
                 else:
                     print("'opp_typing_roi' not found in 'roi_images'.")
         except Exception as e:
-            print(f"An error occurred: {str(e)}")
+            print(f"Error in handle_emblem_update: {str(e)}")
 
     def update_ui(self,client):
         loop_start_time = time.time()

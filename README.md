@@ -29,6 +29,7 @@
 * <del> Add drop down menu for modifying the fast move, that would update the charge move counts accordingly
 * <del> Find a way to keep track of when pokemon faint
 * Improve pokemon switch detection
+* Add "update" button for moveset/cups to the UI
 
 
 # Installation
