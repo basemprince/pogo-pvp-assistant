@@ -65,11 +65,11 @@ feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_sc
 
 
 class PokemonBattleAssistant(ctk.CTk):
-    def __init__(self,feed_res,cup_names):
+    def __init__(self,update_timer,feed_res,cup_names):
         super().__init__()
         self.title("Pokemon Battle Assistant")
         self.feed_res = feed_res
-
+        self.update_timer = update_timer
         mainframe = ctk.CTkFrame(self)
         mainframe.grid(column=0, row=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=30, pady=20)
 
@@ -138,7 +138,11 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.vid_res = (int(client.resolution[0]/2), int(client.resolution[1]/2))
         self.threshold = 500
-        self.ui_reset_counter = 7
+        self.ui_reset_counter = 10
+        self.get_ready_keywords = ['get', 'ready']
+        self.attack_incoming_keywords = ['attack', 'incoming']
+
+
         # to push output to UI
         if ui_printout:
             sys.stdout = utils.TextRedirector(self.command_line_output)
@@ -191,6 +195,7 @@ class PokemonBattleAssistant(ctk.CTk):
         self.league = None
         self.league_pok = None
         self.extract_throw_time_helper = 0
+        self.Player_throw_move = None
 
         self.move_type = ['fast_move','charge_move1','charge_move2']
         self.move_type_disp = ['Fast Move','Charge Move 1','Charge Move 2']
@@ -265,35 +270,22 @@ class PokemonBattleAssistant(ctk.CTk):
         move = choice.split(' - ')[0].upper().replace(" ", "_")
         self.player_map[side].pokemons[num][self.player_map[side].ui_chosen_pk_ind[num]].ui_chosen_moveset[charge_num] = move
 
+
     def charge_move_progress(self):
         try:
             for side in ['opp','me']:
                 if self.player_map[side].initialized:
                     num = self.player_map[side].current_pokemon_index
-                    if num is not None and num < len(self.player_map[side].ui_chosen_pk_ind):
-                        chosen_pk_ind = self.player_map[side].ui_chosen_pk_ind[num]
-                        if chosen_pk_ind is not None and chosen_pk_ind < len(self.player_map[side].pokemons[num]):
-                            fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0]
-                            for i in [1,2]:
-                                if i < len(self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset):
-                                    charge_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[i]
-                                    if charge_mv in self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves and fast_mv in self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[charge_mv].accum_energy:
-                                        accum_energy = self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[charge_mv].accum_energy[fast_mv]
-                                        progress = self.find_label(side,num,f'charge_move{i}_progress')
-                                        if progress is not None:
-                                            colors = self.progress_bar_color(accum_energy)
-                                            progress.set(colors[0])
-                                            progress.configure(fg_color=colors[1],progress_color=colors[2])
-                                        else:
-                                            print(f"No progress label found for side {side}, num {num}, charge move {i}")
-                                    else:
-                                        print(f"Charge move {charge_mv} or fast move {fast_mv} not found in charge moves or accum_energy of the pokemon.")
-                                else:
-                                    print(f"Index {i} out of bounds in ui_chosen_moveset.")
-                        else:
-                            print(f"Index {chosen_pk_ind} out of bounds in pokemons.")
-                    else:
-                        print(f"Index {num} out of bounds in ui_chosen_pk_ind.")
+                    chosen_pk_ind = self.player_map[side].ui_chosen_pk_ind[num]
+
+                    fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0]
+                    for i in [1,2]:
+                        charge_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[i]
+                        accum_energy = self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[charge_mv].accum_energy[fast_mv]
+                        progress = self.find_label(side,num,f'charge_move{i}_progress')
+                        colors = self.progress_bar_color(accum_energy)
+                        progress.set(colors[0])
+                        progress.configure(fg_color=colors[1],progress_color=colors[2])
         except Exception as e:
             print(f"Error in charge_move_progress: {str(e)}")
 
@@ -355,32 +347,58 @@ class PokemonBattleAssistant(ctk.CTk):
             print('releasing video')
             self.out.release()
 
-    def extract_thrown_move(self, ocr_output):
+
+    def extract_thrown_move(self, ocr_output,time_threshold = 2):
         current_time = time.time()
-        time_threshold = 2
-        if current_time - self.extract_throw_time_helper < time_threshold: 
+
+        if current_time - self.extract_throw_time_helper < time_threshold:
             return None, None
+
+        ocr_output_strip = ocr_output.lower().strip()
+        # Check for who threw the move
+        if any(word in ocr_output_strip for word in self.get_ready_keywords):
+            self.Player_throw_move = self.my_player
+            self.extract_throw_time_helper = current_time
+            print('Detected my player throwing a move')
+        elif any(word in ocr_output_strip for word in self.attack_incoming_keywords):
+            self.Player_throw_move = self.opp_player
+            self.extract_throw_time_helper = current_time
+            print('Detected opp player throwing a move')
 
         match = re.search(r'(.+?) used (.+)', ocr_output)
         if match:
             pokemon, move = match.groups()
-            my_pk = self.my_player.pk_battle_name[self.my_player.current_pokemon_index]
-            opp_pk = self.opp_player.pk_battle_name[self.opp_player.current_pokemon_index]
-            closest = utils.closest_name(pokemon, [my_pk, opp_pk])
 
-            if closest == my_pk:
-                self.my_player.pokemon_energy_consumer(move)
-                self.extract_throw_time_helper = current_time
-            elif closest == opp_pk:
-                self.opp_player.pokemon_energy_consumer(move)
-                self.extract_throw_time_helper = current_time
+            if self.Player_throw_move:
+                # Get the list of the player's pokemons
+                player_pokemons = [pokemon for pokemon in self.Player_throw_move.pk_battle_name if pokemon is not None]
+                closest = utils.closest_name(pokemon, player_pokemons)
+
+                if closest in player_pokemons:
+                    closest_index = player_pokemons.index(closest)
+                    self.Player_throw_move.pokemon_energy_consumer(move, closest_index)
+                    self.extract_throw_time_helper = current_time
+                    self.Player_throw_move = None 
+                else:
+                    print(f"Message info did not match {pokemon, move}")
             else:
-                print(f"Message info did not match {pokemon, move}")
+                my_pk = self.my_player.pk_battle_name[self.my_player.current_pokemon_index]
+                opp_pk = self.opp_player.pk_battle_name[self.opp_player.current_pokemon_index]
+                closest = utils.closest_name(pokemon, [my_pk, opp_pk])
+                self.Player_throw_move = None 
+                if closest == my_pk:
+                    self.my_player.pokemon_energy_consumer(move)
+                    self.extract_throw_time_helper = current_time
+                elif closest == opp_pk:
+                    self.opp_player.pokemon_energy_consumer(move)
+                    self.extract_throw_time_helper = current_time
+                else:
+                    print(f"Message info did not match {pokemon, move}")
 
             return pokemon, move
         else:
             return None, None
-                
+      
     def vid_stream(self):
         while self.record_vid:
             frame = client.last_frame
@@ -457,32 +475,18 @@ class PokemonBattleAssistant(ctk.CTk):
     def handle_emblem_update(self, update_me, update_opp, roi_images):
         try:
             if update_me:
-                if hasattr(self, 'moveset_update') and callable(self.moveset_update):
-                    self.moveset_update('me')
-                else:
-                    print("moveset_update method does not exist or is not callable.")
-                
+                self.moveset_update('me')
                 if 'my_typing_roi' in roi_images:
                     my_emblems = utils.detect_emblems(roi_images['my_typing_roi'])
-                    if hasattr(self.my_player, 'on_field_typing'):
-                        self.my_typing_is_correct = True if set(my_emblems) == set(self.my_player.on_field_typing) else False
-                    else:
-                        print("'my_player' object does not have 'on_field_typing' attribute.")
+                    self.my_typing_is_correct = True if set(my_emblems) == set(self.my_player.on_field_typing) else False
                 else:
                     print("'my_typing_roi' not found in 'roi_images'.")
 
             if update_opp:
-                if hasattr(self, 'moveset_update') and callable(self.moveset_update):
-                    self.moveset_update('opp')
-                else:
-                    print("moveset_update method does not exist or is not callable.")
-                
+                self.moveset_update('opp')
                 if 'opp_typing_roi' in roi_images:
                     opp_emblems = utils.detect_emblems(roi_images['opp_typing_roi'])
-                    if hasattr(self.opp_player, 'on_field_typing'):
-                        self.opp_typing_is_correct = True if set(opp_emblems) == set(self.opp_player.on_field_typing) else False
-                    else:
-                        print("'opp_player' object does not have 'on_field_typing' attribute.")
+                    self.opp_typing_is_correct = True if set(opp_emblems) == set(self.opp_player.on_field_typing) else False
                 else:
                     print("'opp_typing_roi' not found in 'roi_images'.")
         except Exception as e:
@@ -563,9 +567,11 @@ class PokemonBattleAssistant(ctk.CTk):
                         self.update_highlight('me')
                         self.update_highlight('opp')
                         self.match.charge_mv_event = False
+                        self.update_timer = update_timer
                     else:
                         if self.match.match_started():
                             self.match.charge_mv_event = True
+                            self.update_timer = 20
                             self.opp_player.pokemon_energy_updater(False)
                             self.my_player.pokemon_energy_updater(False)
                             
@@ -599,7 +605,7 @@ class PokemonBattleAssistant(ctk.CTk):
                 self.reset_ui(False)
         time_elapsed = time.time() - loop_start_time
         self.elapsed_time_label.configure(text=f'{time_elapsed:0.3f}')
-        self.after(update_timer, lambda: app.update_ui(client)) 
+        self.after(self.update_timer, lambda: app.update_ui(client)) 
 
     def update_label(self,side, index, name_of_variable, new_value):
         label = self.find_label(side,index, name_of_variable)
@@ -621,7 +627,7 @@ class PokemonBattleAssistant(ctk.CTk):
         return values.index(current_value)
 
 if __name__ == "__main__":
-    app = PokemonBattleAssistant(feed_res,cup_names_combo_box)
+    app = PokemonBattleAssistant(update_timer,feed_res,cup_names_combo_box)
     app.after(update_timer, lambda: app.update_ui(client)) 
     app.mainloop()
 

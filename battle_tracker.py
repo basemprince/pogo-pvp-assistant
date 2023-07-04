@@ -194,6 +194,9 @@ class Player:
         if not pokemon_list:
             return False  # Skip this list if it's empty
         
+        excluded_forms = ['primal', 'mega', 'shadow']
+        pokemon_list = [pokemon for pokemon in pokemon_list if not any(keyword in pokemon.species_id for keyword in excluded_forms)]
+
         pokemon_list_filtered = [pokemon for pokemon in pokemon_list if pokemon.recommended_moveset]  # Filter out Pokemon with empty recommended_moveset
         
         if pokemon_list_filtered == []:
@@ -257,9 +260,10 @@ class Player:
                 else:
                     pokemon.last_update_time = None
 
-    def pokemon_energy_consumer(self,charge_mv):
+    def pokemon_energy_consumer(self,charge_mv,pk_ind=None):
         if self.initialized:
-            for pokemon in self.pokemons[self.current_pokemon_index]:
+            pk_ind = pk_ind if pk_ind else self.current_pokemon_index
+            for pokemon in self.pokemons[pk_ind]:
                 pokemon.calculate_energy_used(charge_mv)
 
     def start_update(self):
