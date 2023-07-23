@@ -237,6 +237,19 @@
             "values": ["stunfisk_galarian", "cobalion"]
         }]
     }, {
+        "name": "fossil",
+        "title": "Fossil Cup",
+        "include": [{
+            "filterType": "type",
+            "values": ["water", "rock", "steel"]
+        }],
+        "exclude": [{
+            "filterType": "tag",
+            "values": ["mega"]
+        }],
+        "partySize": 3,
+        "presetOnly": true
+    }, {
         "name": "gobattleleague",
         "title": "GO Battle League",
         "include": [],
@@ -279,6 +292,21 @@
             "values": ["shuckle", "smeargle"]
         }],
         "levelCap": 50
+    }, {
+        "name": "littlejungle",
+        "title": "Little Jungle Cup",
+        "include": [{
+            "filterType": "type",
+            "values": ["normal", "grass", "electric", "poison", "ground", "flying", "bug", "dark"]
+        }],
+        "exclude": [{
+            "filterType": "id",
+            "values": ["shuckle", "shuckle_shadow", "smeargle", "genesect", "celebi", "hoopa", "hoopa_unbound", "aerodactyl_shadow", "obstagoon", "zarude", "genesect_douse", "genesect_burn", "xerneas", "thundurus_therian", "yveltal", "meloetta_aria", "zacian", "zamazenta", "zacian_hero", "zamazenta_hero", "genesect_douse", "zarude", "hoopa_unbound", "genesect_shock", "tapu_koko", "tapu_lele", "tapu_bulu", "nihilego", "genesect_chill", "braviary_hisuian", "solgaleo", "lunala", "keldeo_ordinary", "avalugg_hisuian", "kyogre_primal", "groudon_primal", "kleavor"]
+        }, {
+            "filterType": "tag",
+            "values": ["legendary", "mega"]
+        }],
+        "partySize": 3
     }, {
         "name": "mega",
         "title": "All Pokemon",
@@ -328,6 +356,35 @@
         }],
         "allowSameSpecies": true,
         "partySize": 8
+    }, {
+        "name": "ragnargymbreakers",
+        "title": "Gymbreakers (Ragnar)",
+        "include": [{
+            "filterType": "type",
+            "name": "Type",
+            "values": ["bug", "dragon", "ice", "poison", "psychic", "water"]
+        }, {
+            "filterType": "id",
+            "name": "Species",
+            "values": ["miltank", "snorlax", "snorlax_shadow"]
+        }],
+        "exclude": [{
+            "filterType": "type",
+            "name": "Type",
+            "values": ["dark", "electric", "rock"]
+        }, {
+            "filterType": "tag",
+            "name": "Tag",
+            "values": ["mega"]
+        }, {
+            "filterType": "id",
+            "name": "Species",
+            "values": ["altaria", "sandslash_alolan", "sandshrew_alolan", "ninetales_alolan", "lanturn", "toxicroak", "buzzwole", "sneasler", "medicham", "araquanid", "articuno_galarian", "toxapex", "jellicent", "pelipper", "golbat", "crobat", "forretress", "genesect"]
+        }],
+        "restrictedPicks": 2,
+        "restrictedPokemon": ["quagsire", "cresselia", "miltank", "escavalier", "mantine", "azumarill", "mew", "weezing_galarian"],
+        "allowSameSpecies": true,
+        "levelCap": 50
     }, {
         "name": "remix",
         "title": "Remix",
@@ -384,6 +441,33 @@
             "filterType": "tag",
             "values": ["mega"]
         }]
+    }, {
+        "name": "vanguardgymbreakers",
+        "title": "Gymbreakers (Vanguard)",
+        "include": [{
+            "filterType": "type",
+            "name": "Type",
+            "values": ["dragon", "fighting", "flying", "ghost", "ground", "ice", "poison", "rock", "water"]
+        }, {
+            "filterType": "dex",
+            "name": "Pokedex Number",
+            "values": [1, 721]
+        }],
+        "exclude": [{
+            "filterType": "type",
+            "name": "Type",
+            "values": ["dark", "fairy", "steel"]
+        }, {
+            "filterType": "tag",
+            "name": "Tag",
+            "values": ["galarian", "hisuian", "mega"]
+        }, {
+            "filterType": "id",
+            "name": "Species",
+            "values": ["abomasnow", "medicham", "lanturn", "altaria", "cofagrigus", "noctowl", "pidgeot", "aurorus", "jellicent", "pelipper"]
+        }],
+        "allowSameSpecies": true,
+        "levelCap": 50
     }],
     "formats": [{
         "title": "Master League (Classic)",
@@ -424,15 +508,7 @@
         "cp": 10000,
         "meta": "premiermaster",
         "showCup": true,
-        "showFormat": true,
-        "showMeta": true
-    }, {
-        "title": "Single-Type Cup",
-        "cup": "single",
-        "cp": 1500,
-        "meta": "single",
-        "showCup": true,
-        "showFormat": true,
+        "showFormat": false,
         "showMeta": true
     }, {
         "title": "Retro Cup",
@@ -447,6 +523,22 @@
         "cup": "remix",
         "cp": 1500,
         "meta": "remix",
+        "showCup": true,
+        "showFormat": true,
+        "showMeta": true
+    }, {
+        "title": "Fossil Cup",
+        "cup": "fossil",
+        "cp": 1500,
+        "meta": "fossil",
+        "showCup": true,
+        "showFormat": true,
+        "showMeta": true
+    }, {
+        "title": "Little Jungle Cup",
+        "cup": "littlejungle",
+        "cp": 500,
+        "meta": "littlejungle",
         "showCup": true,
         "showFormat": true,
         "showMeta": true
@@ -493,18 +585,26 @@
         "showFormat": true,
         "showMeta": true
     }, {
-        "title": "Silph Innocent Cup",
-        "cup": "innocent",
-        "cp": 1500,
-        "meta": "innocent",
-        "showCup": true,
-        "showFormat": true,
-        "showMeta": true
-    }, {
         "title": "Silph Continentals",
         "cup": "continentals",
         "cp": 1500,
         "meta": "continentals",
+        "showCup": true,
+        "showFormat": true,
+        "showMeta": true
+    }, {
+        "title": "Gymbreakers (Ragnar)",
+        "cup": "ragnargymbreakers",
+        "cp": 1500,
+        "meta": "ragnargymbreakers",
+        "showCup": true,
+        "showFormat": true,
+        "showMeta": true
+    }, {
+        "title": "Gymbreakers (Vanguard)",
+        "cup": "vanguardgymbreakers",
+        "cp": 1500,
+        "meta": "vanguardgymbreakers",
         "showCup": true,
         "showFormat": true,
         "showMeta": true
@@ -526,7 +626,7 @@
         "showFormat": true,
         "showMeta": false
     }],
-    "pokemonTags": ["legendary", "mythical", "alolan", "galarian", "starter", "regional", "shadow", "shadoweligible", "untradeable", "mega", "xs", "hisuian"],
+    "pokemonTags": ["legendary", "mythical", "alolan", "galarian", "starter", "regional", "shadow", "shadoweligible", "untradeable", "mega", "xs", "hisuian", "ultrabeast"],
     "pokemonTraits": {
         "pros": ["bulky", "extremely bulky", "spammy", "agile", "flexible", "dynamic", "fast move pressure", "shield pressure", "defensive", "momentum"],
         "cons": ["less bulky", "glass cannon", "slow", "clumsy", "inflexible", "low fast move pressure", "low shield pressure", "vulnerable", "volatile", "chaotic", "technical", "inconsistent"]
@@ -15957,7 +16057,7 @@
             "cp1500": [25.5, 4, 13, 12],
             "cp2500": [50, 15, 15, 15]
         },
-        "tags": ["shadoweligible", "shadow"],
+        "tags": ["shadoweligible", "shadow", "include1500"],
         "buddyDistance": 3,
         "thirdMoveCost": 50000,
         "released": true,
@@ -31579,7 +31679,7 @@
         },
         "buddyDistance": 3,
         "thirdMoveCost": 50000,
-        "released": false
+        "released": true
     }, {
         "dex": 776,
         "speciesName": "Turtonator",
@@ -31985,7 +32085,7 @@
             "cp1500": [14, 6, 11, 11],
             "cp2500": [23.5, 5, 6, 15]
         },
-        "tags": ["legendary"],
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": true
@@ -32006,7 +32106,7 @@
             "cp1500": [16, 6, 15, 7],
             "cp2500": [26.5, 6, 11, 14]
         },
-        "tags": ["legendary"],
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": true
@@ -32027,7 +32127,7 @@
             "cp1500": [19, 8, 13, 15],
             "cp2500": [34.5, 4, 15, 10]
         },
-        "tags": ["legendary"],
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": true
@@ -32048,7 +32148,7 @@
             "cp1500": [13.5, 8, 15, 15],
             "cp2500": [23, 7, 15, 10]
         },
-        "tags": ["legendary"],
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": true
@@ -32069,7 +32169,7 @@
             "cp1500": [18, 4, 11, 13],
             "cp2500": [30.5, 4, 15, 6]
         },
-        "tags": ["legendary"],
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": true
@@ -32090,7 +32190,7 @@
             "cp1500": [15, 7, 9, 12],
             "cp2500": [25, 4, 9, 14]
         },
-        "tags": ["legendary", "include1500"],
+        "tags": ["legendary", "ultrabeast", "include1500"],
         "levelFloor": 15,
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
@@ -32112,7 +32212,7 @@
             "cp1500": [20, 4, 8, 4],
             "cp2500": [35, 4, 14, 6]
         },
-        "tags": ["legendary"],
+        "tags": ["legendary", "ultrabeast"],
         "searchPriority": 4,
         "levelFloor": 20,
         "buddyDistance": 20,
@@ -32135,6 +32235,7 @@
             "cp1500": [15, 6, 8, 15],
             "cp2500": [25, 5, 13, 11]
         },
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": false
@@ -32155,6 +32256,7 @@
             "cp1500": [13.5, 6, 15, 6],
             "cp2500": [22.5, 5, 15, 7]
         },
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": false
@@ -32175,6 +32277,7 @@
             "cp1500": [13.5, 6, 15, 6],
             "cp2500": [22.5, 5, 15, 7]
         },
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": false
@@ -32195,6 +32298,7 @@
             "cp1500": [11.5, 8, 14, 13],
             "cp2500": [19.5, 4, 10, 15]
         },
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": false
@@ -32235,6 +32339,7 @@
             "cp1500": [39.5, 4, 13, 13],
             "cp2500": [50, 15, 15, 15]
         },
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": false,
@@ -32259,6 +32364,7 @@
             "cp1500": [17.5, 4, 15, 9],
             "cp2500": [28.5, 5, 15, 14]
         },
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": false,
@@ -32283,6 +32389,7 @@
             "cp1500": [16.5, 7, 15, 15],
             "cp2500": [28, 5, 10, 14]
         },
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": false
@@ -32303,6 +32410,7 @@
             "cp1500": [16.5, 6, 15, 12],
             "cp2500": [28, 6, 14, 8]
         },
+        "tags": ["legendary", "ultrabeast"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
         "released": false

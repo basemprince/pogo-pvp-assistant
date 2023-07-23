@@ -16,6 +16,7 @@ import pickle
 import shutil
 from roi_ui import RoiSelector
 import tkinter as tk
+import csv
 
 def load_pokemon_names():
     # Load the JSON files
@@ -488,6 +489,32 @@ def detect_emblems(image, color_range=30, save_images=False):
     
     return sorted(sorted_types)
 
+def record_battle(me, opp, league):
+    filename = "battle_records.csv"
+    fieldnames = ["timestamp", "league", "my_pokemon1", "my_pokemon2", "my_pokemon3", "opp_pokemon1", "opp_pokemon2", "opp_pokemon3"]
+
+    new_record = {"timestamp": datetime.now(), "league": league}
+
+    for i in range(3):
+        my_pokemon_index = me.ui_chosen_pk_ind[i]
+        opp_pokemon_index = opp.ui_chosen_pk_ind[i]
+        
+        my_pokemon = 'None' if my_pokemon_index is None else getattr(me.pokemons[i][my_pokemon_index], 'species_name', 'None')
+        opp_pokemon = 'None' if opp_pokemon_index is None else getattr(opp.pokemons[i][opp_pokemon_index], 'species_name', 'None')
+
+        new_record[f"my_pokemon{i+1}"] = my_pokemon
+        new_record[f"opp_pokemon{i+1}"] = opp_pokemon
+
+
+    try:
+        with open(filename, 'x', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerow(new_record)
+    except FileExistsError:
+        with open(filename, 'a', newline='') as csvfile:
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+            writer.writerow(new_record)
 
 class TextRedirector(object):
     def __init__(self, widget):

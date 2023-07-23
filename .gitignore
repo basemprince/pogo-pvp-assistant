@@ -6,3 +6,4 @@
 __pycache__/
 /yolo_models
 videos/
+battle_records.csv

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import cv2
@@ -19,7 +19,7 @@ import battle_tracker
 import sys
 
 
-# In[2]:
+# In[ ]:
 
 
 # parameters
@@ -35,7 +35,7 @@ update_pokemon = False
 ui_printout = True
 
 
-# In[3]:
+# In[ ]:
 
 
 # Load the JSON files
@@ -52,7 +52,7 @@ if update_pokemon:
 cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
 
 
-# In[4]:
+# In[ ]:
 
 
 # connect to phone
@@ -61,7 +61,7 @@ roi_dict = utils.get_phone_data(client)
 feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
 
 
-# In[5]:
+# In[ ]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
@@ -584,6 +584,7 @@ class PokemonBattleAssistant(ctk.CTk):
                     self.update_pokeballs_counts(roi_images)
 
                     if self.my_player.pokeball_count == 0 and self.opp_player.pokeball_count == 0 and not self.match.end_time is not None:
+                        utils.record_battle(self.my_player,self.opp_player,self.league)
                         print(f'End of match detected. UI resets in {self.ui_reset_counter} seconds')
                         self.match.end_match()
 
