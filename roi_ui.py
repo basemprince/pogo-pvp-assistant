@@ -137,8 +137,12 @@ class RoiSelector(ctk.CTk):
         starting_loc_pokeballs = [int(coord * self.img_scale) for coord in [43,403,266,466]]
         self.my_pokeballs_rect = DraggableResizableRectangle(self.canvas, *starting_loc_pokeballs,handle_color='blue')
 
-        starting_loc_typing = [int(coord * self.img_scale) for coord in [22, 254, 172, 328]]
+        starting_loc_typing = [int(coord * self.img_scale) for coord in [13, 253, 176, 326]]
         self.my_typing_rect = DraggableResizableRectangle(self.canvas, *starting_loc_typing,handle_color='green')
+
+        starting_loc_charge_mv = [int(coord * self.img_scale) for coord in [210, 2526, 613, 2952]]
+        self.first_charge_mv_rect = DraggableResizableRectangle(self.canvas, *starting_loc_charge_mv,handle_color='black')
+
 
         self.screen = None
 
@@ -174,12 +178,17 @@ class RoiSelector(ctk.CTk):
         msgs_roi_coords = get_scaled_coords(self.msgs_rect)
         pokeballs_roi_coords = get_scaled_coords(self.my_pokeballs_rect)
         typing_roi_coords = get_scaled_coords(self.my_typing_rect)
+        first_charge_mv_roi_coords = get_scaled_coords(self.first_charge_mv_rect)
 
-        print(my_roi_coords,msgs_roi_coords,pokeballs_roi_coords,typing_roi_coords)
+        print(my_roi_coords,msgs_roi_coords,pokeballs_roi_coords,typing_roi_coords,first_charge_mv_roi_coords)
 
         opp_roi_coords = get_mirror_coords(my_roi_coords)
         opp_pokeballs_roi_coords = get_mirror_coords(pokeballs_roi_coords)
         opp_typing_roi_coords = get_mirror_coords(typing_roi_coords)
+        opp_typing_roi_coords[0] -= 5
+        opp_typing_roi_coords[1] -= 5
+
+        second_mv_roi_coords = get_mirror_coords(first_charge_mv_roi_coords)
 
         phone_data = {
             'my_roi': my_roi_coords,
@@ -188,7 +197,9 @@ class RoiSelector(ctk.CTk):
             'my_pokeballs_roi': pokeballs_roi_coords,
             'opp_pokeballs_roi': opp_pokeballs_roi_coords,
             'my_typing_roi': typing_roi_coords,
-            'opp_typing_roi': opp_typing_roi_coords
+            'opp_typing_roi': opp_typing_roi_coords,
+            'first_charge_mv_roi': first_charge_mv_roi_coords,
+            'second_charge_mv_roi': second_mv_roi_coords,
         }
 
         yaml_file = 'phone_roi.yaml'
@@ -225,7 +236,8 @@ class RoiSelector(ctk.CTk):
             self.canvas.tag_raise(self.msgs_rect.rect_id)
             self.canvas.tag_raise(self.my_pokeballs_rect.rect_id)
             self.canvas.tag_raise(self.my_typing_rect.rect_id)
-            for rect in [self.my_rect, self.msgs_rect, self.my_pokeballs_rect, self.my_typing_rect]:
+            self.canvas.tag_raise(self.first_charge_mv_rect.rect_id)
+            for rect in [self.my_rect, self.msgs_rect, self.my_pokeballs_rect, self.my_typing_rect,self.first_charge_mv_rect]:
                 for handle in rect.handles.values():
                     self.canvas.tag_raise(handle)
 

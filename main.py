@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import cv2
@@ -10,7 +10,7 @@ import time
 import json
 import re
 from tesserocr import PyTessBaseAPI, PSM
-from PIL import Image
+from PIL import ImageTk, Image
 import utils
 import tkinter as tk
 import customtkinter as ctk
@@ -19,10 +19,12 @@ import battle_tracker
 import sys
 
 
-# In[ ]:
+# In[2]:
 
 
 # parameters
+debug_window = True
+record_to_csv = False
 print_out = False
 display_img = True
 img_scale = 0.1
@@ -35,7 +37,7 @@ update_pokemon = False
 ui_printout = True
 
 
-# In[ ]:
+# In[3]:
 
 
 # Load the JSON files
@@ -52,7 +54,7 @@ if update_pokemon:
 cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
 
 
-# In[ ]:
+# In[4]:
 
 
 # connect to phone
@@ -61,11 +63,11 @@ roi_dict = utils.get_phone_data(client)
 feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
 
 
-# In[ ]:
+# In[5]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
-    def __init__(self,update_timer,feed_res,cup_names):
+    def __init__(self,update_timer,feed_res,cup_names,debug=False):
         super().__init__()
         self.title("Pokemon Battle Assistant")
         self.feed_res = feed_res
@@ -142,12 +144,52 @@ class PokemonBattleAssistant(ctk.CTk):
         self.get_ready_keywords = ['get', 'ready']
         self.attack_incoming_keywords = ['attack', 'incoming']
 
-
         # to push output to UI
         if ui_printout:
             sys.stdout = utils.TextRedirector(self.command_line_output)
             sys.stderr = utils.TextRedirector(self.command_line_output)
         self.initialize_variables()
+
+        self.debug_window = None
+        if debug:
+            self.debug_window = tk.Toplevel()
+            self.debug_window.title('Debug Window')
+
+            # Creating an empty dictionary to store the labels for each ROI
+            self.debug_labels = {}
+
+    def update_debug_window(self, roi_images, scale=0.6):
+        if self.debug_window is not None:
+            # Check if the debug window still exists
+            if self.debug_window.winfo_exists():
+                for name, img in roi_images.items():
+                    # Rescale the image
+                    if isinstance(img, np.ndarray):
+                        img = cv2.resize(img, None, fx=scale, fy=scale)
+                        img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+                    elif isinstance(img, Image.Image):
+                        img = img.resize((int(img.width * scale), int(img.height * scale)))
+                    else:
+                        print(f"Error: ROI '{name}' is not a valid image.")
+                        continue
+
+                    tk_img = ImageTk.PhotoImage(img)
+
+                    # If a label for this ROI already exists, update it
+                    if name in self.debug_labels:
+                        self.debug_labels[name].config(image=tk_img)
+                        self.debug_labels[name].image = tk_img
+                    else:
+                        label = tk.Label(self.debug_window, image=tk_img)
+                        label.image = tk_img  # Keep a reference to the image
+                        label.pack()
+                        self.debug_labels[name] = label
+            else:
+                # If the debug window does not exist, set self.debug_window and self.debug_labels to None
+                self.debug_window = None
+                self.debug_labels = None
+
+
 
     def create_pokemon_frame(self, master, num, side):
         frame = ctk.CTkFrame(master)
@@ -179,6 +221,8 @@ class PokemonBattleAssistant(ctk.CTk):
         frame.charge_move2_progress.set(0) 
         frame.charge_move2_progress.grid(column=1, row=3, sticky="W", padx=10, pady=10)
 
+        self.switch_threshold = 3
+
         return frame
 
     def initialize_variables(self):
@@ -197,6 +241,9 @@ class PokemonBattleAssistant(ctk.CTk):
         self.extract_throw_time_helper = 0
         self.Player_throw_move = None
 
+        self.my_emblem_history = []
+        self.opp_emblem_history = []
+        
         self.move_type = ['fast_move','charge_move1','charge_move2']
         self.move_type_disp = ['Fast Move','Charge Move 1','Charge Move 2']
 
@@ -452,9 +499,8 @@ class PokemonBattleAssistant(ctk.CTk):
         for side in ['my', 'opp']:
             pokeballs_roi = roi_images[f'{side}_pokeballs_roi']
             player = self.player_map[side]
-
-            pokeballs_count = utils.count_pokeballs(pokeballs_roi)
-
+            pokeballs_count,mask = utils.count_pokeballs(pokeballs_roi)
+            self.update_debug_window({f'{side}_pokeballs':mask})
             if pokeballs_count < player.pokeball_count:
                 print(f"{side.capitalize()}'s Pokemon fainted!")
                 player.pokeball_count = pokeballs_count
@@ -477,7 +523,8 @@ class PokemonBattleAssistant(ctk.CTk):
             if update_me:
                 self.moveset_update('me')
                 if 'my_typing_roi' in roi_images:
-                    my_emblems = utils.detect_emblems(roi_images['my_typing_roi'])
+                    my_emblems,emblem_roi = utils.detect_emblems(roi_images['my_typing_roi'])
+                    self.update_debug_window({'my_typing_img':emblem_roi})
                     self.my_typing_is_correct = True if set(my_emblems) == set(self.my_player.on_field_typing) else False
                 else:
                     print("'my_typing_roi' not found in 'roi_images'.")
@@ -485,12 +532,39 @@ class PokemonBattleAssistant(ctk.CTk):
             if update_opp:
                 self.moveset_update('opp')
                 if 'opp_typing_roi' in roi_images:
-                    opp_emblems = utils.detect_emblems(roi_images['opp_typing_roi'])
+                    opp_emblems, emblem_roi = utils.detect_emblems(roi_images['opp_typing_roi'])
+                    self.update_debug_window({'opp_typing_img':emblem_roi})
                     self.opp_typing_is_correct = True if set(opp_emblems) == set(self.opp_player.on_field_typing) else False
                 else:
                     print("'opp_typing_roi' not found in 'roi_images'.")
         except Exception as e:
             print(f"Error in handle_emblem_update: {str(e)}")
+
+    def handle_emblem_update2(self, roi_images):
+        try:
+            self.moveset_update('me')
+            if 'my_typing_roi' in roi_images:
+                my_emblems, emblem_roi = utils.detect_emblems(roi_images['my_typing_roi'])
+                self.my_emblem_history.append(set(my_emblems))
+                if len(self.my_emblem_history) > self.switch_threshold:
+                    self.my_emblem_history.pop(0)
+                if all(emblem_set == self.my_emblem_history[0] for emblem_set in self.my_emblem_history):
+                    self.my_typing_is_correct = self.my_emblem_history[0] == set(self.my_player.on_field_typing)
+                self.update_debug_window({'my_typing_img': emblem_roi})
+
+            self.moveset_update('opp')
+            if 'opp_typing_roi' in roi_images:
+                opp_emblems, emblem_roi = utils.detect_emblems(roi_images['opp_typing_roi'])
+                self.opp_emblem_history.append(set(opp_emblems))
+                if len(self.opp_emblem_history) > self.switch_threshold:
+                    self.opp_emblem_history.pop(0)
+                if all(emblem_set == self.opp_emblem_history[0] for emblem_set in self.opp_emblem_history):
+                    self.opp_typing_is_correct = self.opp_emblem_history[0] == set(self.opp_player.on_field_typing)
+                self.update_debug_window({'opp_typing_img': emblem_roi})
+
+        except Exception as e:
+            print(f"Error in handle_emblem_update: {str(e)}")
+
 
     def update_ui(self,client):
         loop_start_time = time.time()
@@ -502,7 +576,7 @@ class PokemonBattleAssistant(ctk.CTk):
 
             # if self.match.match_started():
             #     if not self.match.charge_mv_event:
-            #         self.my_emblems = utils.detect_emblems(roi_images['my_typing_roi'],30)
+            #         self.my_emblems, = utils.detect_emblems(roi_images['my_typing_roi'],30)
             #         self.opp_emblems = utils.detect_emblems(roi_images['opp_typing_roi'],30)
             #         # print(f'my typings: ({len(self.my_emblems)}) {self.my_emblems}, opp typings: ({len(self.opp_emblems)}){self.opp_emblems}')
             #         # print(f'my_player_typing: {self.my_player.on_field_typing}, opp_player_typing: {self.opp_player.on_field_typing}')
@@ -524,7 +598,7 @@ class PokemonBattleAssistant(ctk.CTk):
                 self.prev_my_roi_img, thresh_my_roi = utils.process_image(roi_images['my_roi'])
                 self.prev_opp_roi_img, thresh_opp_roi = utils.process_image(roi_images['opp_roi'])
                 self.prev_msg_roi_img, thresh_msg_roi = utils.process_image(roi_images['msgs_roi'])
-
+                self.update_debug_window({'thresh_my_roi':thresh_my_roi,'thresh_opp_roi':thresh_opp_roi,'thresh_msg_roi':thresh_msg_roi})
                 my_info = self.ocr_detect(thresh_my_roi)
                 opp_info = self.ocr_detect(thresh_opp_roi)
 
@@ -563,7 +637,7 @@ class PokemonBattleAssistant(ctk.CTk):
                         self.opp_player.start_update()
 
                         self.handle_emblem_update(update_me, update_opp, roi_images)
-                    
+
                         self.update_highlight('me')
                         self.update_highlight('opp')
                         self.match.charge_mv_event = False
@@ -582,9 +656,10 @@ class PokemonBattleAssistant(ctk.CTk):
             if self.match.match_started():
                 if not self.match.charge_mv_event:
                     self.update_pokeballs_counts(roi_images)
-
+                    self.handle_emblem_update2(roi_images)
                     if self.my_player.pokeball_count == 0 and self.opp_player.pokeball_count == 0 and not self.match.end_time is not None:
-                        utils.record_battle(self.my_player,self.opp_player,self.league)
+                        if record_to_csv:
+                            utils.record_battle(self.my_player,self.opp_player,self.league)
                         print(f'End of match detected. UI resets in {self.ui_reset_counter} seconds')
                         self.match.end_match()
 
@@ -628,7 +703,7 @@ class PokemonBattleAssistant(ctk.CTk):
         return values.index(current_value)
 
 if __name__ == "__main__":
-    app = PokemonBattleAssistant(update_timer,feed_res,cup_names_combo_box)
+    app = PokemonBattleAssistant(update_timer,feed_res,cup_names_combo_box,debug_window)
     app.after(update_timer, lambda: app.update_ui(client)) 
     app.mainloop()
 

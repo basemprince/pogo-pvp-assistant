@@ -17,6 +17,7 @@ import shutil
 from roi_ui import RoiSelector
 import tkinter as tk
 import csv
+import shutil
 
 def load_pokemon_names():
     # Load the JSON files
@@ -70,7 +71,8 @@ def get_phone_data(client):
     if phone_data:
         roi_dict = {roi_key: phone_data.get(roi_key) for roi_key in 
                     ['my_roi', 'opp_roi', 'msgs_roi', 'my_pokeballs_roi', 
-                     'opp_pokeballs_roi', 'my_typing_roi', 'opp_typing_roi']}
+                     'opp_pokeballs_roi', 'my_typing_roi', 'opp_typing_roi',
+                     'first_charge_mv_roi', 'second_charge_mv_roi']}
     else:
         print("Failed to retrieve phone data")
         return None
@@ -86,7 +88,7 @@ def find_correct_alignment(df, row, col, counts):
     first_count, step = move_counts[:2]
     return [first_count + step * i for i in range(counts)]
 
-import shutil
+
 
 def update_json_files():
     try:
@@ -401,7 +403,7 @@ def count_pokeballs(image):
 
     # Find contours in the thresholded image
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    return len(contours)
+    return len(contours),mask
 
 def hex_to_bgr(hex_color):
     hex_color = hex_color.lstrip('#')
@@ -433,11 +435,21 @@ def detect_emblems(image, color_range=30, save_images=False):
     color_ranges = {pokemon_type: (list(map(lambda x: max(0, x-color_range), hex_to_bgr(color))), list(map(lambda x: min(255, x+color_range), hex_to_bgr(color)))) for pokemon_type, color in hex_colors.items()}
 
     gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    gray = cv2.GaussianBlur(gray, (7, 7), 0)
-    gray = cv2.Canny(gray, 10, 80)
 
-    gray = cv2.dilate(gray, None, iterations=2)
-    gray = cv2.erode(gray, None, iterations=1)
+    # Enhance contrast
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+    gray = clahe.apply(gray)
+
+    # Apply a Median blur
+    # gray = cv2.medianBlur(gray, 3)
+
+
+    # Use adaptive thresholding
+    # gray = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+
+    # gray = cv2.dilate(gray, None, iterations=3)
+    # gray = cv2.erode(gray, None, iterations=2)
 
     if save_images:
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
@@ -449,16 +461,26 @@ def detect_emblems(image, color_range=30, save_images=False):
         except Exception as e:
             pass
 
-    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=1, minDist=10, param1=30, param2=13, minRadius=30, maxRadius=40)
-
+    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp=1, minDist=25, param1=30, param2=13, minRadius=29, maxRadius=32)
+    img_with_circles = cv2.cvtColor(gray.copy(), cv2.COLOR_GRAY2BGR)
     if circles is not None:
         circles = np.uint16(np.around(circles))
         # Sort the circles by their radius, from largest to smallest
         sorted_circles = sorted(circles[0], key=lambda x: -float(x[2]))
         top_circles = sorted_circles[:2]
         number_of_emblems = len(top_circles)
+
+        for i in range(number_of_emblems):
+            a, b, r = top_circles[i][0], top_circles[i][1], top_circles[i][2]
+
+            # Draw the circumference of the circle.
+            cv2.circle(img_with_circles, (a, b), r, (0, 255, 0), 2)
+            
+            # Draw a small circle (of radius 1) to show the center.
+            cv2.circle(img_with_circles, (a, b), 1, (0, 0, 255), 3)
+
     else:
-        return []
+        return [], img_with_circles
 
     # Detect each type of emblem
     type_counts = {}
@@ -487,7 +509,7 @@ def detect_emblems(image, color_range=30, save_images=False):
 
     sorted_types = [pokemon_type for pokemon_type, pixel_count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:number_of_emblems]]
     
-    return sorted(sorted_types)
+    return sorted(sorted_types), img_with_circles
 
 def record_battle(me, opp, league):
     filename = "battle_records.csv"
