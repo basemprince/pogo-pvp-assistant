@@ -5,8 +5,10 @@
 # Features
 * Auto league detection (Great, Ultra, or Master) based on the Pokémon's CP
 * Displays the move-set suggested based on PvPoke recommendations and their counts
-* Calculates the best move timing to avoid throwing on alignment and giving opponent free turns
-* Shows the last 3 opponent Pokémon seen 
+* Calculates and displays the best move timing to avoid throwing on alignment and giving opponent free turns
+* Keeps track of the 3 Pokémons of each player. Highlights the current ones on the field with green
+* Highlights fainted pokemon with red
+* End of match auto detection that resets the UI after a countdown in preparation for the next match. Keeps the same league previously chosen.
 * A counter for opponent switch cooldown
 * Dropdown menu for currently available specific meta cups imported from PvPoke
 * Dropdown menus to choose which form of pokemon (if available) is currenlty on the field, and for fast and charge moves that updates based on the chosen moves
@@ -27,8 +29,8 @@
 * <del> Add drop down menu for modifying the fast move, that would update the charge move counts accordingly
 * <del> Find a way to keep track of when pokemon faint
 * Improve pokemon switch detection
-* Add "update" button for moveset/cups to the UI. Add cooldown timer to avoid hitting the request limit
-* Implement debugging window for ROIs
+* <del> Add "update" button for moveset/cups to the UI. Add cooldown timer to avoid hitting the request limit
+* <del> Implement debugging window for ROIs
 * Create a section for current pokemons analytics: who wins CMP, damage % for each charge move, battle ratings in each shield scenario
 
 # Installation
@@ -59,7 +61,7 @@ python main.py
 
 7. Now, the battle assistant should show up in a new window as shown:
 <p align="center">
-<img src="templates/app-ui.png" width="400">
+<img src="templates/app-ui.png" width="600">
 </p>
 
 # Dockerfile steps

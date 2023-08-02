@@ -88,7 +88,30 @@ def find_correct_alignment(df, row, col, counts):
     first_count, step = move_counts[:2]
     return [first_count + step * i for i in range(counts)]
 
+def update_data():
+    try:
+        with open('json_files/last_update_time.pkl', 'rb') as file:
+            last_update_time = pickle.load(file)
+    except FileNotFoundError:
+        last_update_time = None
 
+    if last_update_time and (datetime.now() - last_update_time).total_seconds() < 3600:
+        print("Cooldown period has not passed. Please try again later.")
+        return
+
+    response = tk.messagebox.askyesno("Confirmation", "Are you sure you want to update the Pokémon and leagues data from PvPoke?")
+    if response:
+        update_pk_info()
+        update_move_info()
+        update_leagues_and_cups(True)
+
+        last_update_time = datetime.now()
+        with open('json_files/last_update_time.pkl', 'wb') as file:
+            pickle.dump(last_update_time, file)
+
+        print("Data updated successfully!")
+    else:
+        print("Update cancelled.")
 
 def update_json_files():
     try:
@@ -136,7 +159,7 @@ def update_json_files():
         print(f"An error occurred: {str(e)}")
 
 
-def update_leagues_and_cups(update):
+def update_leagues_and_cups(update=False):
     cup_names_combo_box = ['Great League', 'Ultra League', 'Master League']
     save_cup_names = []
     try:
