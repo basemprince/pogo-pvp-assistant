@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[ ]:
 
 
 import cv2
@@ -19,25 +19,26 @@ import battle_tracker
 import sys
 
 
-# In[2]:
+# # Parameters
+
+# In[ ]:
 
 
-# parameters
-debug_window = True
-record_to_csv = False
-print_out = False
-display_img = True
-img_scale = 0.1
-update_timer = 50
-alignment_count_display = 5
-roi_color = (0, 0, 0)  
-roi_thick = 12
-update_json_files = False
-update_pokemon = False
-ui_printout = True
+debug_window = True             # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
+record_to_csv = True            # records the seen pokemon during the match in to a csv file (battle_records.csv)
+print_out = False               # extra printouts for debugging
+display_img = True              # shows the screen feed on the UI
+img_scale = 0.1                 # the scale of the screen feed
+update_timer = 50               # UI refresh rate in ms
+alignment_count_display = 5     # how many move counts to display for the move throw alignment
+roi_color = (0, 0, 0)           # color of boxes drawn on the screen feed
+roi_thick = 12                  # thickness of boxes drawn on the screen feed
+update_json_files = False       # to update the json files of the leagues and cups from pvpoke
+update_pokemon = False          # to update pokemon and moves json files from pvpoke
+ui_printout = True              # puts a terminal "like" box into the UI for printouts
 
 
-# In[3]:
+# In[ ]:
 
 
 # Load the JSON files
@@ -54,7 +55,7 @@ if update_pokemon:
 cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
 
 
-# In[4]:
+# In[ ]:
 
 
 # connect to phone
@@ -63,7 +64,7 @@ roi_dict = utils.get_phone_data(client)
 feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
 
 
-# In[5]:
+# In[ ]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
@@ -79,6 +80,12 @@ class PokemonBattleAssistant(ctk.CTk):
         self.league_combobox = ctk.CTkComboBox(mainframe, values=cup_names,command=self.league_callback)
         self.league_combobox.grid(column=0, row=0,sticky="W", padx=0, pady=10)
         self.league_combobox.set('choose league')
+
+        # Define the update button
+        update_button = ctk.CTkButton(mainframe, text="Update data from PvPoke", command=utils.update_data)
+
+        update_button.grid(column=0, row=0, sticky="E", padx=10, pady=10)
+
 
         opponent_frame = ctk.CTkLabel(mainframe, text="Opponent's Pokemon", text_color= 'gray', anchor="nw")
         opponent_frame.grid(column=0, row=1, sticky=(tk.W, tk.E), padx=0, pady=0)
@@ -189,8 +196,6 @@ class PokemonBattleAssistant(ctk.CTk):
                 self.debug_window = None
                 self.debug_labels = None
 
-
-
     def create_pokemon_frame(self, master, num, side):
         frame = ctk.CTkFrame(master)
         box_width = 250
@@ -264,6 +269,10 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.my_emblems = []
         self.opp_emblems = []
+
+        self.first_charge_handler = utils.ChargeCircleDetector()
+        self.second_charge_handler = utils.ChargeCircleDetector()
+
 
     def reset_ui(self,reset_league = True):
         self.initialize_variables()
@@ -565,6 +574,15 @@ class PokemonBattleAssistant(ctk.CTk):
         except Exception as e:
             print(f"Error in handle_emblem_update: {str(e)}")
 
+    def handle_charge_move_circle_detect(self,roi_images):
+        try:
+            first_perc,first_charge_mv_roi= self.first_charge_handler.detect_charge_circles(roi_images['first_charge_mv_roi'])
+            second_perc, second_charge_mv_roi= self.second_charge_handler.detect_charge_circles(roi_images['second_charge_mv_roi'])
+            # print(f'first_perc:{round(first_perc,2)}, second_perc:{round(second_perc,2)}')
+            self.update_debug_window({'first_charge_mv_img':first_charge_mv_roi})
+            self.update_debug_window({'second_charge_mv_img':second_charge_mv_roi})
+        except Exception as e:
+            print(f"Error in handle_charge_move_circle_detect: {str(e)}")          
 
     def update_ui(self,client):
         loop_start_time = time.time()
@@ -657,6 +675,7 @@ class PokemonBattleAssistant(ctk.CTk):
                 if not self.match.charge_mv_event:
                     self.update_pokeballs_counts(roi_images)
                     self.handle_emblem_update2(roi_images)
+                    self.handle_charge_move_circle_detect(roi_images)
                     if self.my_player.pokeball_count == 0 and self.opp_player.pokeball_count == 0 and not self.match.end_time is not None:
                         if record_to_csv:
                             utils.record_battle(self.my_player,self.opp_player,self.league)

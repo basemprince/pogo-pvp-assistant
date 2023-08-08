@@ -301,7 +301,7 @@
         }],
         "exclude": [{
             "filterType": "id",
-            "values": ["shuckle", "shuckle_shadow", "smeargle", "genesect", "celebi", "hoopa", "hoopa_unbound", "aerodactyl_shadow", "obstagoon", "zarude", "genesect_douse", "genesect_burn", "xerneas", "thundurus_therian", "yveltal", "meloetta_aria", "zacian", "zamazenta", "zacian_hero", "zamazenta_hero", "genesect_douse", "zarude", "hoopa_unbound", "genesect_shock", "tapu_koko", "tapu_lele", "tapu_bulu", "nihilego", "genesect_chill", "braviary_hisuian", "solgaleo", "lunala", "keldeo_ordinary", "avalugg_hisuian", "kyogre_primal", "groudon_primal", "kleavor"]
+            "values": ["shuckle", "shuckle_shadow", "smeargle", "genesect", "celebi", "hoopa", "hoopa_unbound", "aerodactyl_shadow", "zarude", "genesect_douse", "genesect_burn", "xerneas", "thundurus_therian", "yveltal", "meloetta_aria", "zacian", "zamazenta", "zacian_hero", "zamazenta_hero", "genesect_douse", "zarude", "hoopa_unbound", "genesect_shock", "tapu_koko", "tapu_lele", "tapu_bulu", "nihilego", "genesect_chill", "braviary_hisuian", "solgaleo", "lunala", "keldeo_ordinary", "avalugg_hisuian", "kyogre_primal", "groudon_primal", "kleavor"]
         }, {
             "filterType": "tag",
             "values": ["legendary", "mega"]
@@ -511,14 +511,6 @@
         "showFormat": false,
         "showMeta": true
     }, {
-        "title": "Fossil Cup",
-        "cup": "fossil",
-        "cp": 1500,
-        "meta": "fossil",
-        "showCup": true,
-        "showFormat": true,
-        "showMeta": true
-    }, {
         "title": "Little Jungle Cup",
         "cup": "littlejungle",
         "cp": 500,
@@ -527,52 +519,10 @@
         "showFormat": true,
         "showMeta": true
     }, {
-        "title": "Silph Factions (Great League)",
-        "cup": "factionsgreat",
-        "cp": 1500,
-        "meta": "great",
-        "showCup": false,
-        "showFormat": true,
-        "showMeta": false,
-        "hideRankings": true
-    }, {
-        "title": "Silph Factions (Ultra League)",
-        "cup": "factionsultra",
+        "title": "Fantasy Cup (Ultra League)",
+        "cup": "fantasy",
         "cp": 2500,
-        "meta": "ultra",
-        "showCup": false,
-        "showFormat": true,
-        "showMeta": false,
-        "hideRankings": true
-    }, {
-        "title": "Silph Factions (Master League)",
-        "cup": "factionsmaster",
-        "cp": 10000,
-        "meta": "masterfactions",
-        "showCup": true,
-        "showFormat": true,
-        "showMeta": true
-    }, {
-        "title": "Silph Factions (Ragnar)",
-        "cup": "ragnar",
-        "cp": 1500,
-        "meta": "ragnar",
-        "showCup": true,
-        "showFormat": true,
-        "showMeta": true
-    }, {
-        "title": "Silph Factions (Echo)",
-        "cup": "echo",
-        "cp": 1500,
-        "meta": "echo",
-        "showCup": true,
-        "showFormat": true,
-        "showMeta": true
-    }, {
-        "title": "Silph Continentals",
-        "cup": "continentals",
-        "cp": 1500,
-        "meta": "continentals",
+        "meta": "fantasyultra",
         "showCup": true,
         "showFormat": true,
         "showMeta": true
@@ -13169,6 +13119,29 @@
         },
         "nicknames": ["ttar"]
     }, {
+        "dex": 248,
+        "speciesName": "Tyranitar (Mega)",
+        "speciesId": "tyranitar_mega",
+        "baseStats": {
+            "atk": 309,
+            "def": 276,
+            "hp": 225
+        },
+        "types": ["rock", "dark"],
+        "fastMoves": ["BITE", "IRON_TAIL", "SMACK_DOWN"],
+        "chargedMoves": ["CRUNCH", "FIRE_BLAST", "STONE_EDGE", "BRUTAL_SWING"],
+        "defaultIVs": {
+            "cp500": [3.5, 15, 15, 15],
+            "cp1500": [10, 14, 15, 7],
+            "cp2500": [17, 5, 7, 15]
+        },
+        "tags": ["shadoweligible", "mega"],
+        "level25CP": 3435,
+        "eliteMoves": ["SMACK_DOWN"],
+        "buddyDistance": 5,
+        "thirdMoveCost": 75000,
+        "released": true
+    }, {
         "dex": 249,
         "speciesName": "Lugia",
         "speciesId": "lugia",
@@ -18771,8 +18744,8 @@
         },
         "types": ["dragon", "flying"],
         "fastMoves": ["AIR_SLASH", "DRAGON_TAIL"],
-        "chargedMoves": ["AERIAL_ACE", "ANCIENT_POWER", "OUTRAGE", "HURRICANE", "BREAKING_SWIPE"],
-        "eliteMoves": ["HURRICANE", "BREAKING_SWIPE"],
+        "chargedMoves": ["AERIAL_ACE", "ANCIENT_POWER", "OUTRAGE", "HURRICANE", "BREAKING_SWIPE", "DRAGON_ASCENT"],
+        "eliteMoves": ["HURRICANE", "BREAKING_SWIPE", "DRAGON_ASCENT"],
         "tags": ["legendary"],
         "defaultIVs": {
             "cp500": [5, 6, 15, 14],
@@ -22538,7 +22511,7 @@
         },
         "buddyDistance": 5,
         "thirdMoveCost": 75000,
-        "released": false
+        "released": true
     }, {
         "dex": 479,
         "speciesName": "Rotom (Heat)",
@@ -29731,8 +29704,9 @@
             "hp": 246
         },
         "types": ["fairy", "none"],
-        "fastMoves": ["TACKLE", "ZEN_HEADBUTT"],
+        "fastMoves": ["TACKLE", "ZEN_HEADBUTT", "GEOMANCY"],
         "chargedMoves": ["MOONBLAST", "MEGAHORN", "CLOSE_COMBAT", "GIGA_IMPACT", "THUNDER"],
+        "eliteMoves": ["GEOMANCY"],
         "defaultIVs": {
             "cp500": [5, 10, 14, 13],
             "cp1500": [14.5, 4, 13, 15],
@@ -29753,7 +29727,8 @@
         },
         "types": ["dark", "flying"],
         "fastMoves": ["SUCKER_PUNCH", "SNARL", "GUST"],
-        "chargedMoves": ["DARK_PULSE", "HURRICANE", "FOCUS_BLAST", "HYPER_BEAM", "PSYCHIC"],
+        "chargedMoves": ["DARK_PULSE", "HURRICANE", "FOCUS_BLAST", "HYPER_BEAM", "PSYCHIC", "OBLIVION_WING"],
+        "eliteMoves": ["OBLIVION_WING"],
         "defaultIVs": {
             "cp500": [5, 10, 14, 13],
             "cp1500": [14.5, 4, 13, 15],
@@ -29844,13 +29819,14 @@
         "fastMoves": ["TACKLE", "ROCK_THROW"],
         "chargedMoves": ["ROCK_SLIDE", "MOONBLAST", "POWER_GEM"],
         "defaultIVs": {
-            "cp500": [7, 4, 12, 13],
-            "cp1500": [20.5, 4, 12, 12],
-            "cp2500": [38.5, 4, 13, 12]
+            "cp500": [6.5, 12, 15, 14],
+            "cp1500": [19.5, 12, 12, 14],
+            "cp2500": [35, 13, 15, 13]
         },
+        "tags": ["mythical", "untradeable"],
         "buddyDistance": 20,
         "thirdMoveCost": 100000,
-        "released": false
+        "released": true
     }, {
         "dex": 720,
         "speciesName": "Hoopa",

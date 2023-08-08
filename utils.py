@@ -18,6 +18,7 @@ from roi_ui import RoiSelector
 import tkinter as tk
 import csv
 import shutil
+import math
 
 def load_pokemon_names():
     # Load the JSON files
@@ -101,6 +102,7 @@ def update_data():
 
     response = tk.messagebox.askyesno("Confirmation", "Are you sure you want to update the Pokémon and leagues data from PvPoke?")
     if response:
+        print('updating json files. please wait ....')
         update_pk_info()
         update_move_info()
         update_leagues_and_cups(True)
@@ -533,6 +535,88 @@ def detect_emblems(image, color_range=30, save_images=False):
     sorted_types = [pokemon_type for pokemon_type, pixel_count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:number_of_emblems]]
     
     return sorted(sorted_types), img_with_circles
+
+
+class ChargeCircleDetector:
+    def __init__(self):
+        self.center_history = []
+        self.stabilized_center = None
+        self.charge_moves_stored = 0
+
+    def mask_white_pixels(self, image, min_white, max_white):
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        lower_white = np.array(min_white, dtype=np.uint8)
+        upper_white = np.array(max_white, dtype=np.uint8)
+        mask = cv2.inRange(hsv, lower_white, upper_white)
+        inverted_mask = cv2.bitwise_not(mask)
+        return cv2.bitwise_and(image, image, mask=inverted_mask)
+
+    def calculate_filled_proportion(self, circle, boundary_row):
+        boundary_from_bottom = (circle[1] + circle[2]) - boundary_row
+        return boundary_from_bottom / (2 * circle[2])
+
+    def detect_energy_boundary_in_full_image(self, image, circle):
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+        abs_sobel_y = np.abs(sobel_y)
+        mask = self.create_annular_mask(image.shape, circle, inner_radius_proportion=0.6)
+        abs_sobel_y_masked = cv2.bitwise_and(abs_sobel_y, abs_sobel_y, mask=mask)
+        return np.argmax(np.sum(abs_sobel_y_masked, axis=1))
+
+    def create_annular_mask(self, image_shape, circle, inner_radius_proportion=0.3):
+        mask = np.zeros(image_shape[:2], dtype=np.uint8)
+        center = (int(circle[0]), int(circle[1]))
+        outer_radius = int(circle[2])
+        inner_radius = int(inner_radius_proportion * circle[2])
+        cv2.circle(mask, center, outer_radius, (255), -1)
+        cv2.circle(mask, center, inner_radius, (0), -1)
+        return mask
+
+    def adjust_detected_circle_radius(self, circle, adjustment_factor=0.9):
+        x, y, r = circle
+        return (x, y, r * adjustment_factor)
+
+
+    def detect_charge_circles(self, image):
+        min_white = [0, 0, 200]
+        max_white = [180, 40, 255]
+        image_without_white_circle = self.mask_white_pixels(image, min_white, max_white)
+
+        gray = cv2.cvtColor(image_without_white_circle, cv2.COLOR_BGR2GRAY)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        gray = clahe.apply(gray)
+
+        # If the center is stabilized, create a region of interest around that center
+        roi = gray
+        roi_size = 145
+        if self.stabilized_center:
+            x, y = int(self.stabilized_center[0]), int(self.stabilized_center[1])
+            roi = gray[max(y - roi_size, 0):min(y + roi_size, gray.shape[0]), max(x - roi_size, 0):min(x + roi_size, gray.shape[1])]
+
+        circles = cv2.HoughCircles(roi, cv2.HOUGH_GRADIENT, dp=1, minDist=math.inf, param1=30, param2=15, minRadius=90, maxRadius=roi_size)
+
+        if circles is not None:
+            circle = circles[0, 0]
+            if self.stabilized_center:
+                circle[0] += max(self.stabilized_center[0] - roi_size, 0)
+                circle[1] += max(self.stabilized_center[1] - roi_size, 0)
+
+            self.center_history.append((circle[0], circle[1]))
+            if len(self.center_history) > 4:
+                self.center_history.pop(0)
+                if all([abs(self.center_history[i][0] - self.center_history[i + 1][0]) < 10 and
+                        abs(self.center_history[i][1] - self.center_history[i + 1][1]) < 10 for i in range(3)]):
+                    self.stabilized_center = (circle[0], circle[1])
+
+            adjusted_circle = self.adjust_detected_circle_radius(circle, 1)
+            detected_boundary_row = self.detect_energy_boundary_in_full_image(image_without_white_circle.copy(), adjusted_circle)
+            filled_proportion = self.calculate_filled_proportion(adjusted_circle, detected_boundary_row)
+            cv2.circle(image_without_white_circle, (int(adjusted_circle[0]), int(adjusted_circle[1])), int(adjusted_circle[2]), (0, 255, 0), 2)
+            cv2.line(image_without_white_circle, (0, detected_boundary_row), (image.shape[1], detected_boundary_row), (0, 0, 255), 2)
+            return filled_proportion, image_without_white_circle
+        else:
+            return None, None
+
 
 def record_battle(me, opp, league):
     filename = "battle_records.csv"

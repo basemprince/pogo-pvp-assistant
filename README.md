@@ -14,6 +14,7 @@
 * Dropdown menus to choose which form of pokemon (if available) is currenlty on the field, and for fast and charge moves that updates based on the chosen moves
 * Screen recording functionality
 * Energy accumulation tracking along with energy deduction when charge moves are thrown (not accurate - needs further work)
+* Saves seen Pokémons to a battle records CSV file
 
 # To-Do
 * <del> Automate finding the ROI location for Pokémon information to make it work with any phone / resolution
@@ -32,6 +33,7 @@
 * <del> Add "update" button for moveset/cups to the UI. Add cooldown timer to avoid hitting the request limit
 * <del> Implement debugging window for ROIs
 * Create a section for current pokemons analytics: who wins CMP, damage % for each charge move, battle ratings in each shield scenario
+* Augment energy accumulation with my charge move circles CV processings
 
 # Installation
 NOTE: Only works for Android devices. Connect your phone to your computer and allow for USB Debugging in your Developer Settings:
