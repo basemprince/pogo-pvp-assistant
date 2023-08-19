@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  pogo-pvp-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: pogo-pvp-assistant-img
+    container_name: pogo_pvp-assistant-container
+    volumes:
+      - "/dev/bus/usb:/dev/bus/usb"
+    environment:
+      - DISPLAY=host.docker.internal:0.0
+      - ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
+    network_mode: "host"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

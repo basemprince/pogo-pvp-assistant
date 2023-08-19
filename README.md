@@ -66,7 +66,7 @@ python main.py
 <img src="templates/app-ui.png" width="600">
 </p>
 
-# Dockerfile steps
+# Dockerfile steps (Linux)
 If you would like to run the app using a docker container instead, after installing the docker engine run the following:
 ```
 sudo docker build -t pogo-bot .
@@ -74,3 +74,14 @@ xhost +local:
 sudo docker run --net="host" -e DISPLAY=unix$DISPLAY pogo-bot
 
 ```
+
+# Dockerfile steps (Windows)
+A bit more convoluted, please follow these steps:
+
+1. **Install Docker Desktop**: Download and install from [Docker's website](https://www.docker.com/products/docker-desktop).
+2. **Download Android SDK Platform Tools**: Get them [here](https://developer.android.com/tools/releases/platform-tools) and run `adb start-server` from within the `platform-tools` folder.
+3. **Run the following commands from PowerShell**:
+   ```powershell
+   docker-compose up --build
+   docker run -it -v /run/desktop/mnt/host/wslg/.X11-unix:/tmp/.X11-unix -v /run/desktop/mnt/host/wslg:/mnt/wslg -e DISPLAY=:0 -e WAYLAND_DISPLAY=wayland-0 -e XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir -e PULSE_SERVER=/mnt/wslg/PulseServer pogo-pvp-assistant-img
+

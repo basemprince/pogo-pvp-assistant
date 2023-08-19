@@ -3,7 +3,7 @@ import pandas as pd
 import io
 import requests
 import os
-from adbutils import adb
+from adbutils import AdbClient
 import scrcpy.core as scrcpy
 from difflib import get_close_matches
 import numpy as np
@@ -298,7 +298,8 @@ def download_current_cups():
     return update_format_select(formats)
 
 def connect_to_device(ip):
-    adb.connect("127.0.0.1:5037")
+    adb = AdbClient(host="host.docker.internal", port=5037)
+    adb.connect(ip)
     try:
         client = scrcpy.Client(device=adb.device_list()[0])
     except IndexError:
