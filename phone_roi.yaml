@@ -1,12 +1,17 @@
 Pixel 3 XL:
+  first_charge_mv_roi:
+  - 223
+  - 2363
+  - 383
+  - 443
   msgs_roi:
-  - 250
+  - 230
   - 996
-  - 930
+  - 986
   - 100
   my_pokeballs_roi:
-  - 40
-  - 430
+  - 43
+  - 426
   - 223
   - 63
   my_roi:
@@ -15,13 +20,13 @@ Pixel 3 XL:
   - 530
   - 50
   my_typing_roi:
-  - 20
-  - 276
-  - 150
+  - 16
+  - 280
+  - 163
   - 73
   opp_pokeballs_roi:
-  - 1177
-  - 430
+  - 1174
+  - 426
   - 223
   - 63
   opp_roi:
@@ -30,10 +35,15 @@ Pixel 3 XL:
   - 530
   - 50
   opp_typing_roi:
-  - 1270
-  - 276
-  - 150
+  - 1256
+  - 275
+  - 163
   - 73
+  second_charge_mv_roi:
+  - 834
+  - 2363
+  - 383
+  - 443
 Pixel 7 Pro:
   first_charge_mv_roi:
   - 210

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 import cv2
@@ -17,11 +17,12 @@ import customtkinter as ctk
 import threading
 import battle_tracker
 import sys
+import argparse
 
 
 # # Parameters
 
-# In[ ]:
+# In[2]:
 
 
 debug_window = True             # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
@@ -38,7 +39,7 @@ update_pokemon = False          # to update pokemon and moves json files from pv
 ui_printout = True              # puts a terminal "like" box into the UI for printouts
 
 
-# In[ ]:
+# In[3]:
 
 
 # Load the JSON files
@@ -55,16 +56,7 @@ if update_pokemon:
 cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
 
 
-# In[ ]:
-
-
-# connect to phone
-client = utils.connect_to_device("127.0.0.1:5037")
-roi_dict = utils.get_phone_data(client)
-feed_res = (int(client.resolution[0]*img_scale), int(client.resolution[1]*img_scale))
-
-
-# In[ ]:
+# In[4]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
@@ -177,7 +169,7 @@ class PokemonBattleAssistant(ctk.CTk):
                     elif isinstance(img, Image.Image):
                         img = img.resize((int(img.width * scale), int(img.height * scale)))
                     else:
-                        print(f"Error: ROI '{name}' is not a valid image.")
+                        # print(f"Error: ROI '{name}' is not a valid image.")
                         continue
 
                     tk_img = ImageTk.PhotoImage(img)
@@ -722,7 +714,20 @@ class PokemonBattleAssistant(ctk.CTk):
         return values.index(current_value)
 
 if __name__ == "__main__":
-    app = PokemonBattleAssistant(update_timer,feed_res,cup_names_combo_box,debug_window)
+    if 'ipykernel_launcher.py' in sys.argv[0]: # for jupyter testing
+        sys.argv = [sys.argv[0]] 
+
+    parser = argparse.ArgumentParser(description="Pokemon Battle Assistant")
+    parser.add_argument('--docker', action='store_true', help="Flag to identify if running in Docker container")
+    args = parser.parse_args()
+    is_docker = args.docker
+
+    # connect to phone
+    client = utils.connect_to_device("127.0.0.1:5037", is_docker)
+    roi_dict = utils.get_phone_data(client)
+    feed_res = (int(client.resolution[0] * img_scale), int(client.resolution[1] * img_scale))
+
+    app = PokemonBattleAssistant(update_timer, feed_res, cup_names_combo_box, debug_window)
     app.after(update_timer, lambda: app.update_ui(client)) 
     app.mainloop()
 
