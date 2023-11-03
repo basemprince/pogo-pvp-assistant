@@ -89,7 +89,7 @@ def find_correct_alignment(df, row, col, counts):
     first_count, step = move_counts[:2]
     return [first_count + step * i for i in range(counts)]
 
-def update_data():
+def update_data(button=True):
     try:
         with open('json_files/last_update_time.pkl', 'rb') as file:
             last_update_time = pickle.load(file)
@@ -99,8 +99,12 @@ def update_data():
     if last_update_time and (datetime.now() - last_update_time).total_seconds() < 3600:
         print("Cooldown period has not passed. Please try again later.")
         return
+    
+    if last_update_time and not button and (datetime.now() - last_update_time).total_seconds()/(3600*24) < 7:
+        print("json files still relatively new.. skipping update")
+        return
 
-    response = tk.messagebox.askyesno("Confirmation", "Are you sure you want to update the Pokémon and leagues data from PvPoke?")
+    response = tk.messagebox.askyesno("Confirmation", "Are you sure you want to update the Pokémon and leagues data from PvPoke?") if button else True
     if response:
         print('updating json files. please wait ....')
         update_pk_info()
@@ -298,22 +302,24 @@ def download_current_cups():
     return update_format_select(formats)
 
 def connect_to_device(ip,docker=False):
-    if docker:
-        adb_client = AdbClient(host="host.docker.internal", port=5037)
-        adb_client.connect(ip)
-        try:
-            client = scrcpy.Client(device=adb_client.device_list()[0])
-        except IndexError:
-            raise Exception("No devices connected.")
-    else:
-        adb.connect(ip)
-        try:
-            client = scrcpy.Client(device=adb.device_list()[0])
-        except IndexError:
-            raise Exception("No devices connected.")
 
-    client.start(threaded=True)
-    print(f'Connected to: {client.device_name}')
+    client = scrcpy.Client(ip=ip,docker=docker)
+    # if docker:
+    #     adb_client = AdbClient(host="host.docker.internal", port=5037)
+    #     adb_client.connect(ip)
+    #     try:
+    #         client = scrcpy.Client(device=adb_client.device_list()[0])
+    #     except IndexError:
+    #         raise Exception("No devices connected.")
+    # else:
+    #     adb.connect(ip)
+    #     try:
+    #         client = scrcpy.Client(device=adb.device_list()[0])
+    #     except IndexError:
+    #         raise Exception("No devices connected.")
+
+    # client.start(threaded=True)
+    # print(f'Connected to: {client.device_name}')
     return client
 
 

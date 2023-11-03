@@ -8,7 +8,7 @@ from typing import Any, Callable, Optional, Tuple, Union
 
 import cv2
 import numpy as np
-from adbutils import AdbConnection, AdbDevice, AdbError, Network, adb
+from adbutils import AdbConnection, AdbDevice, AdbError, Network, adb, AdbClient
 from av.codec import CodecContext
 from av.error import InvalidDataError
 
@@ -34,6 +34,8 @@ class Client:
         lock_screen_orientation: int = LOCK_SCREEN_ORIENTATION_UNLOCKED,
         connection_timeout: int = 3000,
         encoder_name: Optional[str] = None,
+        ip: str = "127.0.0.1:5037",
+        docker: bool = False
     ):
         """
         Create a scrcpy client, this client won't be started until you call the start function
@@ -80,10 +82,10 @@ class Client:
         self.encoder_name = encoder_name
 
         # Connect to device
-        if device is None:
-            device = adb.device_list()[0]
-        elif isinstance(device, str):
-            device = adb.device(serial=device)
+        # if device is None:
+        #     device = adb.device_list()[0]
+        # elif isinstance(device, str):
+        #     device = adb.device(serial=device)
 
         self.device = device
         self.listeners = dict(frame=[], init=[], disconnect=[])
@@ -103,6 +105,31 @@ class Client:
 
         # Available if start with threaded or daemon_threaded
         self.stream_loop_thread = None
+        self.ip = ip
+        self.docker = docker
+        self.start_server()
+
+    def start_server(self):
+        connected = False
+        while not connected:
+            if self.docker:
+                adb_client = AdbClient(host="host.docker.internal", port=5037)
+                adb_client.connect(self.ip)
+                device_list = adb_client.device_list()
+            else:
+                adb.connect(self.ip)
+                device_list = adb.device_list()
+            if device_list:
+                self.device = device_list[0]
+                connected = True
+            else:
+                print("No devices connected. Retrying in 5 seconds...")
+                sleep(5)  # Wait for 5 seconds before retrying
+
+        self.start(threaded=True)
+        print(f'Connected to: {self.device_name}')
+
+      
 
     def __init_server_connection(self) -> None:
         """
@@ -242,6 +269,13 @@ class Client:
                         self.last_frame = frame
                         self.resolution = (frame.shape[1], frame.shape[0])
                         self.__send_to_listeners(EVENT_FRAME, frame)
+            except ConnectionError:
+                print("Video stream disconnected. attempting to reconnect")
+                self.alive = False
+                self.__send_to_listeners(EVENT_DISCONNECT)
+                self.stop()
+                self.start_server()  # Attempt to restart the server
+                break
             except (BlockingIOError, InvalidDataError):
                 time.sleep(0.01)
                 if not self.block_frame:

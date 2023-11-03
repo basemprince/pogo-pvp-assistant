@@ -7,3 +7,5 @@ __pycache__/
 /yolo_models
 videos/
 battle_records.csv
+/json_files/rankings/
+/json_files/*.pkl
