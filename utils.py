@@ -3,7 +3,6 @@ import pandas as pd
 import io
 import requests
 import os
-from adbutils import AdbClient, adb
 import scrcpy.core as scrcpy
 from difflib import get_close_matches
 import numpy as np
@@ -96,7 +95,7 @@ def update_data(button=True):
     except FileNotFoundError:
         last_update_time = None
 
-    if last_update_time and (datetime.now() - last_update_time).total_seconds() < 3600:
+    if last_update_time and button and (datetime.now() - last_update_time).total_seconds() < 3600:
         print("Cooldown period has not passed. Please try again later.")
         return
     
@@ -302,24 +301,7 @@ def download_current_cups():
     return update_format_select(formats)
 
 def connect_to_device(ip,docker=False):
-
     client = scrcpy.Client(ip=ip,docker=docker)
-    # if docker:
-    #     adb_client = AdbClient(host="host.docker.internal", port=5037)
-    #     adb_client.connect(ip)
-    #     try:
-    #         client = scrcpy.Client(device=adb_client.device_list()[0])
-    #     except IndexError:
-    #         raise Exception("No devices connected.")
-    # else:
-    #     adb.connect(ip)
-    #     try:
-    #         client = scrcpy.Client(device=adb.device_list()[0])
-    #     except IndexError:
-    #         raise Exception("No devices connected.")
-
-    # client.start(threaded=True)
-    # print(f'Connected to: {client.device_name}')
     return client
 
 

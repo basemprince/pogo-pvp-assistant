@@ -152,6 +152,14 @@ class Pokemon:
 def load_pk_data(info_name, pokemon_names, pokemon_details,moves_data,league_pok):
     temp_corrected_name = utils.closest_name(info_name, pokemon_names)
     move_data = [item for item in pokemon_details if temp_corrected_name and item['speciesName'].startswith(temp_corrected_name)]
+    
+    excluded_forms = ['primal', 'mega', 'shadow']
+    # Filter out entries that contain any of the excluded forms
+    filtered_move_data = [data for data in move_data if not any(excluded_form in data['speciesId'] for excluded_form in excluded_forms)]
+    # Check if "shadow" was detected in any of the excluded entries
+    if any('shadow' in data['speciesId'] for data in move_data if any(excluded_form in data['speciesId'] for excluded_form in excluded_forms)):
+        add_return = True
+    move_data = filtered_move_data
 
     pokemon_list = []
     
@@ -160,7 +168,8 @@ def load_pk_data(info_name, pokemon_names, pokemon_details,moves_data,league_pok
         
         for fast_move_name in data['fastMoves']:
             pokemon.load_fast_move(moves_data,fast_move_name)
-        
+        if add_return:
+            data['chargedMoves'].append('RETURN')
         for charge_move_name in data['chargedMoves']:
             pokemon.load_charge_move(moves_data,charge_move_name)
         
@@ -194,9 +203,6 @@ class Player:
         if not pokemon_list:
             return False  # Skip this list if it's empty
         
-        excluded_forms = ['primal', 'mega', 'shadow']
-        pokemon_list = [pokemon for pokemon in pokemon_list if not any(keyword in pokemon.species_id for keyword in excluded_forms)]
-
         pokemon_list_filtered = [pokemon for pokemon in pokemon_list if pokemon.recommended_moveset]  # Filter out Pokemon with empty recommended_moveset
         
         if pokemon_list_filtered == []:
