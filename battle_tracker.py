@@ -78,8 +78,11 @@ class Pokemon:
             # print(f"Warning: pokemon's recommended_moveset for {self.species_name} couldn't be loaded")
             fast_keys = list(self.fast_moves.keys())
             charge_keys = list(self.charge_moves.keys())
+            try:
+                self.recommended_moveset = [fast_keys[0],charge_keys[0],charge_keys[1]]
+            except Exception as e:
+                print(f"Error in set_recommended_moveset: {str(e)}")
 
-            self.recommended_moveset = [fast_keys[0],charge_keys[0],charge_keys[1]]
 
         self.ui_chosen_moveset = self.recommended_moveset
 
@@ -151,9 +154,11 @@ class Pokemon:
 
 def load_pk_data(info_name, pokemon_names, pokemon_details,moves_data,league_pok):
     temp_corrected_name = utils.closest_name(info_name, pokemon_names)
+
     move_data = [item for item in pokemon_details if temp_corrected_name and item['speciesName'].startswith(temp_corrected_name)]
-    
-    excluded_forms = ['primal', 'mega', 'shadow']
+
+    excluded_forms = ['_primal', '_mega', '_shadow']
+    add_return = False
     # Filter out entries that contain any of the excluded forms
     filtered_move_data = [data for data in move_data if not any(excluded_form in data['speciesId'] for excluded_form in excluded_forms)]
     # Check if "shadow" was detected in any of the excluded entries
