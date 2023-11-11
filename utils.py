@@ -18,6 +18,7 @@ import tkinter as tk
 import csv
 import shutil
 import math
+import sys
 
 def load_pokemon_names():
     # Load the JSON files
@@ -644,10 +645,15 @@ def record_battle(me, opp, league):
 class TextRedirector(object):
     def __init__(self, widget):
         self.widget = widget
+        self.original_stdout = sys.stdout  
 
-    def write(self, str):
-        self.widget.insert(tk.END, str)
-        self.widget.see(tk.END)
+    def write(self, string):
+        try:
+            if self.widget.winfo_exists(): 
+                self.widget.insert(tk.END, string)
+                self.widget.see(tk.END)
+        except Exception:
+            self.original_stdout.write(string)  # Redirect output to original stdout
 
     def flush(self):
-        pass
+        pass  
