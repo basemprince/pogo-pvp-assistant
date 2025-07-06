@@ -5,6 +5,7 @@ channels:
 dependencies:
   - python=3.10
   - tesseract
+  - tesserocr
   - ffmpeg
   - pip
   - pip:
@@ -16,6 +17,5 @@ dependencies:
       - pandas==2.0.1
       - Pillow==9.5.0
       - requests==2.30.0
-      - tesserocr==2.6.0
       - tk==0.1.0
       - PyYAML==6.0

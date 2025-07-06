@@ -32,7 +32,7 @@ EXPOSE 5037
 
 # Define environment variable for ADB
 ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
-ENV PYHTONUNBUFFERED=1
+ENV PYTHONUNBUFFERED=1
 
 # Run the application using the conda environment
 CMD ["conda", "run", "-n", "pogo-pvp-assistant", "python", "main.py"]
