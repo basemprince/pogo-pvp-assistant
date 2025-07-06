@@ -47,10 +47,11 @@ git clone git@github.com:basemprince/pogo-bot.git
 ```
 cd pogo-bot
 sudo apt-get update
-sudo apt-get install -y gcc g++ tesseract-ocr libtesseract-dev libleptonica-dev pkg-config ffmpeg libsm6 libxext6 tk
+sudo apt-get install -y gcc g++ tesseract-ocr libtesseract-dev libleptonica-dev \
+    pkg-config ffmpeg libsm6 libxext6 tk android-sdk-platform-tools-common
 ```
    For other platforms install the equivalent packages using your OS package
-   manager (for example `brew install tesseract ffmpeg` on macOS).
+   manager (for example `brew install tesseract ffmpeg android-platform-tools` on macOS).
 3. Create a conda environment and install the Python requirements:
 ```
 conda env create -f environment.yml
@@ -58,19 +59,29 @@ conda activate pogo-pvp-assistant
 ```
    The environment installs `ipykernel` for notebook support and `pyautogui`
    for GUI automation used in some example notebooks.
-4. In main.py, you need to edit the phone variable to add the name of your phone, and find the correct roi_adjust values that matches your phone resolution to put the roi on the correct location as shown in picture below. This will be a trial and error
+4. In `main.py`, edit the phone variable to add the name of your phone, and
+   find the correct `roi_adjust` values that match your phone resolution to put
+   the ROI on the correct location as shown in the picture below. This will be
+   a trial and error process.
 
-5. Run the main script:
+5. Ensure the `adb` server is running (`adb start-server`). The app will print a
+   helpful message if `adb` cannot be found in your `PATH`.
+
+6. Run the main script. On first run the app downloads data from PvPoke if the
+   files are missing, so it might take a few minutes:
 ```
 python main.py
 ```
-6. A ui will show up to set up the assign the correct locations of the ROI if its a phone that was not previously used. Best way is to play through a match and take screenshots of the battle and when a message is displayed in the middle. Align the boxes to correct locations, click save and close window:
+7. A UI will show up to set up the correct locations of the ROI if it's a phone
+   that was not previously used. Play through a match and take screenshots of the
+   battle and when a message is displayed in the middle. Align the boxes to the
+   correct locations, click save and close window:
 <p align="center">
 <img src="templates/roi_selector.png" width="400">
 </p>
 
 
-7. Now, the battle assistant should show up in a new window as shown:
+8. Now, the battle assistant should show up in a new window as shown:
 <p align="center">
 <img src="templates/app-ui.png" width="600">
 </p>

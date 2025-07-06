@@ -301,9 +301,14 @@ def download_current_cups():
 
     return update_format_select(formats)
 
-def connect_to_device(ip,docker=False):
-    client = scrcpy.Client(ip=ip,docker=docker)
-    return client
+def connect_to_device(ip, docker=False):
+    try:
+        client = scrcpy.Client(ip=ip, docker=docker)
+        return client
+    except RuntimeError as e:
+        if "No adb exe could be found" in str(e):
+            print("ADB executable not found. Please install Android platform tools and ensure 'adb' is in your PATH.")
+        raise
 
 
 def get_roi_images(frame,roi_dict):

@@ -18,6 +18,7 @@ import threading
 import battle_tracker
 import sys
 import argparse
+import os
 
 
 # # Parameters
@@ -49,10 +50,12 @@ moves = utils.load_moves_info()
 
 # load alignment info
 alignment_df = utils.load_alignment_df(alignment_count_display)
-    
+
 if update_pokemon:
     utils.update_pk_info()
     utils.update_move_info()
+if not os.path.exists("json_files/saved_cup_names.pkl"):
+    update_json_files = True
 cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
 
 
