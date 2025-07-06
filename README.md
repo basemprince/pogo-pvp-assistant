@@ -42,12 +42,15 @@ NOTE: Only works for Android devices. Connect your phone to your computer and al
 ```
 git clone git@github.com:basemprince/pogo-bot.git
 ```
-2. Navigate to the cloned repository and install the required system packages:
+2. Navigate to the cloned repository and install the required system packages.
+   On Ubuntu/Debian based systems you can run:
 ```
 cd pogo-bot
 sudo apt-get update
 sudo apt-get install -y gcc g++ tesseract-ocr libtesseract-dev libleptonica-dev pkg-config ffmpeg libsm6 libxext6 tk
 ```
+   For other platforms install the equivalent packages using your OS package
+   manager (for example `brew install tesseract ffmpeg` on macOS).
 3. Create a conda environment and install the Python requirements:
 ```
 conda env create -f environment.yml
