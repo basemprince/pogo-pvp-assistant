@@ -56,6 +56,8 @@ sudo apt-get install -y gcc g++ tesseract-ocr libtesseract-dev libleptonica-dev 
 conda env create -f environment.yml
 conda activate pogo-pvp-assistant
 ```
+   The environment installs `ipykernel` for notebook support and `pyautogui`
+   for GUI automation used in some example notebooks.
 4. In main.py, you need to edit the phone variable to add the name of your phone, and find the correct roi_adjust values that matches your phone resolution to put the roi on the correct location as shown in picture below. This will be a trial and error
 
 5. Run the main script:

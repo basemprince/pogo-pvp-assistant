@@ -7,6 +7,7 @@ dependencies:
   - tesseract
   - tesserocr
   - ffmpeg
+  - ipykernel
   - pip
   - pip:
       - adbutils==1.2.9
@@ -18,4 +19,5 @@ dependencies:
       - Pillow==9.5.0
       - requests==2.30.0
       - tk==0.1.0
+      - pyautogui==0.9.54
       - PyYAML==6.0
