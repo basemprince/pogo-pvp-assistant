@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+# pylint: skip-file
 
 # In[1]:
 
@@ -64,6 +65,7 @@ cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
 
 
 class PokemonBattleAssistant(ctk.CTk):
+    # pylint: disable=too-many-public-methods
     def __init__(self, update_timer, feed_res, cup_names, debug=False):
         super().__init__()
         self.title("Pokemon Battle Assistant")
@@ -131,7 +133,7 @@ class PokemonBattleAssistant(ctk.CTk):
         if display_img:
             output_image_frame.grid_columnconfigure(0, weight=1)
             output_image_frame.grid_columnconfigure(1, weight=1)
-            self.command_line_output.grid(column=0, row=0, sticky=(tk.W, tk.E), padx=0, pady=0)
+            self.command_line_output.grid(column=0, row=0, sticky="we", padx=0, pady=0)
 
             # Add image
             self.my_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=feed_res)
@@ -139,7 +141,7 @@ class PokemonBattleAssistant(ctk.CTk):
             self.image_label.grid(column=1, row=0, pady=0)
         else:
             output_image_frame.grid_columnconfigure(0, weight=2)  # Set the weight to a larger value
-            self.command_line_output.grid(column=0, row=0, sticky=(tk.W, tk.E), padx=0, pady=0)
+            self.command_line_output.grid(column=0, row=0, sticky="we", padx=0, pady=0)
 
         self.vid_res = (int(client.resolution[0] / 2), int(client.resolution[1] / 2))
         self.threshold = 500
@@ -154,6 +156,7 @@ class PokemonBattleAssistant(ctk.CTk):
         self.initialize_variables()
 
         self.debug_window = None
+        self.debug_labels: dict[str, tk.Label] | None = None
         if debug:
             self.debug_window = tk.Toplevel()
             self.debug_window.title("Debug Window")
@@ -162,7 +165,7 @@ class PokemonBattleAssistant(ctk.CTk):
             self.debug_labels = {}
 
     def update_debug_window(self, roi_images, scale=1):
-        if self.debug_window is not None:
+        if self.debug_window is not None and self.debug_labels is not None:
             # Check if the debug window still exists
             if self.debug_window.winfo_exists():
                 for name, img in roi_images.items():
@@ -181,10 +184,10 @@ class PokemonBattleAssistant(ctk.CTk):
                     # If a label for this ROI already exists, update it
                     if name in self.debug_labels:
                         self.debug_labels[name].config(image=tk_img)
-                        self.debug_labels[name].image = tk_img
+                        self.debug_labels[name].image = tk_img  # type: ignore[attr-defined]
                     else:
                         label = tk.Label(self.debug_window, image=tk_img)
-                        label.image = tk_img  # Keep a reference to the image
+                        label.image = tk_img  # type: ignore[attr-defined]  # Keep a reference to the image
                         label.pack()
                         self.debug_labels[name] = label
             else:
@@ -266,8 +269,8 @@ class PokemonBattleAssistant(ctk.CTk):
         self.opp_info_match = None
         self.league = None
         self.league_pok = None
-        self.extract_throw_time_helper = 0
-        self.Player_throw_move = None
+        self.extract_throw_time_helper: float = 0.0
+        self.Player_throw_move: battle_tracker.Player | None = None
 
         self.my_emblem_history = []
         self.opp_emblem_history = []
@@ -278,7 +281,10 @@ class PokemonBattleAssistant(ctk.CTk):
         self.league_detector = utils.LeagueDetector()
 
         self.record_vid = False
-        self.out = None
+        self.out: cv2.VideoWriter | None = None
+        self.stream_vid: threading.Thread | None = None
+        self.debug_labels = None
+        self.prev_msg_roi_img = np.array([])
 
         self.my_player = battle_tracker.Player("me")
         self.opp_player = battle_tracker.Player("opp")
@@ -360,20 +366,27 @@ class PokemonBattleAssistant(ctk.CTk):
                 if self.player_map[side].initialized:
                     num = self.player_map[side].current_pokemon_index
                     chosen_pk_ind = self.player_map[side].ui_chosen_pk_ind[num]
+                    if chosen_pk_ind is None:
+                        continue
 
-                    fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0]
-                    for i in [1, 2]:
-                        charge_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[i]
-                        accum_energy = (
-                            self.player_map[side]
-                            .pokemons[num][chosen_pk_ind]
-                            .charge_moves[charge_mv]
-                            .accum_energy[fast_mv]
-                        )
-                        progress = self.find_label(side, num, f"charge_move{i}_progress")
-                        colors = self.progress_bar_color(accum_energy)
-                        progress.set(colors[0])
-                        progress.configure(fg_color=colors[1], progress_color=colors[2])
+                    chosen_pk = self.player_map[side].pokemons[num][chosen_pk_ind]
+                    moveset = chosen_pk.ui_chosen_moveset
+                    if moveset is not None and len(moveset) >= 3:
+                        fast_mv = moveset[0]
+                        for i in [1, 2]:
+                            charge_mv = moveset[i]
+                            accum_energy = (
+                                self.player_map[side]
+                                .pokemons[num][chosen_pk_ind]
+                                .charge_moves[charge_mv]
+                                .accum_energy[fast_mv]
+                            )
+                            progress = self.find_label(side, num, f"charge_move{i}_progress")
+                            colors = self.progress_bar_color(accum_energy)
+                            progress.set(colors[0])
+                            progress.configure(fg_color=colors[1], progress_color=colors[2])
+                    else:
+                        continue
         except Exception as e:
             print(f"Error in charge_move_progress: {str(e)}")
 
@@ -431,9 +444,11 @@ class PokemonBattleAssistant(ctk.CTk):
         else:
             self.start_button.configure(text="Start Recording")
             self.record_vid = False  # Ensure recording stops
-            self.stream_vid.join()  # Wait for the thread to actually stop
+            if self.stream_vid is not None:
+                self.stream_vid.join()  # Wait for the thread to actually stop
             print("releasing video")
-            self.out.release()
+            if self.out is not None:
+                self.out.release()
 
     def extract_thrown_move(self, ocr_output, time_threshold=2):
         current_time = time.time()
@@ -490,7 +505,8 @@ class PokemonBattleAssistant(ctk.CTk):
         while self.record_vid:
             frame = client.last_frame
             resized_frame = cv2.resize(frame, self.vid_res)
-            self.out.write(resized_frame)
+            if self.out is not None:
+                self.out.write(resized_frame)
             time.sleep(0.01)
 
     def moveset_update(self, side):
@@ -576,9 +592,7 @@ class PokemonBattleAssistant(ctk.CTk):
                 if "my_typing_roi" in roi_images:
                     my_emblems, emblem_roi = utils.detect_emblems(roi_images["my_typing_roi"])
                     self.update_debug_window({"my_typing_img": emblem_roi})
-                    self.my_typing_is_correct = (
-                        True if set(my_emblems) == set(self.my_player.on_field_typing) else False
-                    )
+                    self.my_typing_is_correct = set(my_emblems) == set(self.my_player.on_field_typing or [])
                 else:
                     print("'my_typing_roi' not found in 'roi_images'.")
 
@@ -587,9 +601,7 @@ class PokemonBattleAssistant(ctk.CTk):
                 if "opp_typing_roi" in roi_images:
                     opp_emblems, emblem_roi = utils.detect_emblems(roi_images["opp_typing_roi"])
                     self.update_debug_window({"opp_typing_img": emblem_roi})
-                    self.opp_typing_is_correct = (
-                        True if set(opp_emblems) == set(self.opp_player.on_field_typing) else False
-                    )
+                    self.opp_typing_is_correct = set(opp_emblems) == set(self.opp_player.on_field_typing or [])
                 else:
                     print("'opp_typing_roi' not found in 'roi_images'.")
         except Exception as e:
@@ -604,7 +616,7 @@ class PokemonBattleAssistant(ctk.CTk):
                 if len(self.my_emblem_history) > self.switch_threshold:
                     self.my_emblem_history.pop(0)
                 if all(emblem_set == self.my_emblem_history[0] for emblem_set in self.my_emblem_history):
-                    self.my_typing_is_correct = self.my_emblem_history[0] == set(self.my_player.on_field_typing)
+                    self.my_typing_is_correct = self.my_emblem_history[0] == set(self.my_player.on_field_typing or [])
                 self.update_debug_window({"my_typing_img": emblem_roi})
 
             self.moveset_update("opp")
@@ -614,7 +626,9 @@ class PokemonBattleAssistant(ctk.CTk):
                 if len(self.opp_emblem_history) > self.switch_threshold:
                     self.opp_emblem_history.pop(0)
                 if all(emblem_set == self.opp_emblem_history[0] for emblem_set in self.opp_emblem_history):
-                    self.opp_typing_is_correct = self.opp_emblem_history[0] == set(self.opp_player.on_field_typing)
+                    self.opp_typing_is_correct = self.opp_emblem_history[0] == set(
+                        self.opp_player.on_field_typing or []
+                    )
                 self.update_debug_window({"opp_typing_img": emblem_roi})
 
         except Exception as e:
@@ -622,10 +636,10 @@ class PokemonBattleAssistant(ctk.CTk):
 
     def handle_charge_move_circle_detect(self, roi_images):
         try:
-            first_perc, first_charge_mv_roi = self.first_charge_handler.detect_charge_circles(
+            _first_perc, first_charge_mv_roi = self.first_charge_handler.detect_charge_circles(
                 roi_images["first_charge_mv_roi"]
             )
-            second_perc, second_charge_mv_roi = self.second_charge_handler.detect_charge_circles(
+            _second_perc, second_charge_mv_roi = self.second_charge_handler.detect_charge_circles(
                 roi_images["second_charge_mv_roi"]
             )
             # print(f'first_perc:{round(first_perc,2)}, second_perc:{round(second_perc,2)}')
