@@ -113,6 +113,7 @@ class RoiSelector(ctk.CTk):
         self.feed_res = (int(self.client.resolution[0]*self.img_scale), int(self.client.resolution[1]*self.img_scale))
         self.original_res = self.client.resolution
         self.update_timer = update_timer
+        w, h = self.feed_res
 
         mainframe = ctk.CTkFrame(self)
         mainframe.grid(column=0, row=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=0, pady=0)
@@ -127,20 +128,20 @@ class RoiSelector(ctk.CTk):
         self.canvas = tk.Canvas(mainframe, width=self.feed_res[0], height=self.feed_res[1])
         self.canvas.grid(column=0, row=3, pady=0)
 
-        starting_loc_my = [int(coord * self.img_scale) for coord in [40,346,570,396]]
+        starting_loc_my = [int(w * 0.07), int(h * 0.13), int(w * 0.5), int(h * 0.15)]
         self.my_rect = DraggableResizableRectangle(self.canvas, *starting_loc_my)
 
 
-        starting_loc_msgs = [int(coord * self.img_scale) for coord in [253,1023,1183,1123]]
+        starting_loc_msgs = [int(w * 0.25), int(h * 0.39), int(w * 0.9), int(h * 0.43)]
         self.msgs_rect = DraggableResizableRectangle(self.canvas, *starting_loc_msgs,handle_color='orange')
 
-        starting_loc_pokeballs = [int(coord * self.img_scale) for coord in [43,403,266,466]]
+        starting_loc_pokeballs = [int(w * 0.07), int(h * 0.15), int(w * 0.22), int(h * 0.18)]
         self.my_pokeballs_rect = DraggableResizableRectangle(self.canvas, *starting_loc_pokeballs,handle_color='blue')
 
-        starting_loc_typing = [int(coord * self.img_scale) for coord in [13, 253, 176, 326]]
+        starting_loc_typing = [int(w * 0.02), int(h * 0.1), int(w * 0.13), int(h * 0.13)]
         self.my_typing_rect = DraggableResizableRectangle(self.canvas, *starting_loc_typing,handle_color='green')
 
-        starting_loc_charge_mv = [int(coord * self.img_scale) for coord in [210, 2526, 613, 2952]]
+        starting_loc_charge_mv = [int(w * 0.35), int(h * 0.85), int(w * 0.7), int(h * 0.99)]
         self.first_charge_mv_rect = DraggableResizableRectangle(self.canvas, *starting_loc_charge_mv,handle_color='black')
 
 
@@ -224,7 +225,6 @@ class RoiSelector(ctk.CTk):
         original_screen = client.last_frame
         if original_screen is not None:
             resized_image = cv2.resize(original_screen, self.feed_res, interpolation=cv2.INTER_AREA)
-            resized_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
             pil_img  = Image.fromarray(resized_image)
             self.tk_img = ImageTk.PhotoImage(pil_img)
 
@@ -245,9 +245,10 @@ class RoiSelector(ctk.CTk):
 
 
 if __name__ == "__main__":
-    img_scale = 0.3
+    img_scale = 0.5
     update_timer = 1
     client = utils.connect_to_device("127.0.0.1:5037")
+    print(f"Connected to device with resolution: {client.resolution}")
     app = RoiSelector(client,img_scale,update_timer)
     app.update_ui(client)
     app.mainloop()

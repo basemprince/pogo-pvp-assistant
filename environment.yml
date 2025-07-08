@@ -1,0 +1,25 @@
+name: pogo-pvp-assistant
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - tesseract
+  - tesserocr
+  - ffmpeg
+  - ipykernel
+  - pip
+  - pip:
+      - adbutils==2.9.3
+      - av==10.0.0
+      - customtkinter==5.1.3
+      - numpy==1.24.3
+      - opencv-python==4.7.0.72
+      - pandas==2.0.1
+      - Pillow==9.5.0
+      - requests==2.30.0
+      - tk==0.1.0
+      - pyautogui==0.9.54
+      - PyYAML==6.0
+      - matplotlib==3.7.1
+      - pygame==2.6.0

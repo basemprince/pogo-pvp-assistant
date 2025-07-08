@@ -18,6 +18,7 @@ import threading
 import battle_tracker
 import sys
 import argparse
+import os
 
 
 # # Parameters
@@ -27,9 +28,9 @@ import argparse
 
 debug_window = True             # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
 record_to_csv = True            # records the seen pokemon during the match in to a csv file (battle_records.csv)
-print_out = False               # extra printouts for debugging
+print_out = True               # extra printouts for debugging
 display_img = True              # shows the screen feed on the UI
-img_scale = 0.1                 # the scale of the screen feed
+img_scale = 0.3                 # the scale of the screen feed
 update_timer = 50               # UI refresh rate in ms
 alignment_count_display = 5     # how many move counts to display for the move throw alignment
 roi_color = (0, 0, 0)           # color of boxes drawn on the screen feed
@@ -49,10 +50,12 @@ moves = utils.load_moves_info()
 
 # load alignment info
 alignment_df = utils.load_alignment_df(alignment_count_display)
-    
+
 if update_pokemon:
     utils.update_pk_info()
     utils.update_move_info()
+if not os.path.exists("json_files/saved_cup_names.pkl"):
+    update_json_files = True
 cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
 
 
@@ -157,7 +160,7 @@ class PokemonBattleAssistant(ctk.CTk):
             # Creating an empty dictionary to store the labels for each ROI
             self.debug_labels = {}
 
-    def update_debug_window(self, roi_images, scale=0.6):
+    def update_debug_window(self, roi_images, scale=1):
         if self.debug_window is not None:
             # Check if the debug window still exists
             if self.debug_window.winfo_exists():
@@ -726,7 +729,7 @@ if __name__ == "__main__":
     client = utils.connect_to_device("127.0.0.1:5037", is_docker)
     roi_dict = utils.get_phone_data(client)
     feed_res = (int(client.resolution[0] * img_scale), int(client.resolution[1] * img_scale))
-
+    print(f"Connected to device with resolution: {client.resolution}, feed resolution: {feed_res}")
     app = PokemonBattleAssistant(update_timer, feed_res, cup_names_combo_box, debug_window)
     app.after(update_timer, lambda: app.update_ui(client)) 
     app.mainloop()

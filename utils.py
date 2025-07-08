@@ -19,6 +19,7 @@ import csv
 import shutil
 import math
 import sys
+import time
 
 def load_pokemon_names():
     # Load the JSON files
@@ -61,6 +62,16 @@ def load_phone_data(device_name):
         return None
 
 def get_phone_data(client):
+
+    timeout = 5
+    start = time.time()
+    while client.resolution is None and time.time() - start < timeout:
+        time.sleep(0.05)
+
+    if client.resolution is None:
+        raise RuntimeError("Timed out waiting for video resolution from scrcpy.")
+
+
     phone_data = load_phone_data(client.device_name)
 
     if phone_data is None:
@@ -301,9 +312,14 @@ def download_current_cups():
 
     return update_format_select(formats)
 
-def connect_to_device(ip,docker=False):
-    client = scrcpy.Client(ip=ip,docker=docker)
-    return client
+def connect_to_device(ip, docker=False):
+    try:
+        client = scrcpy.Client(ip=ip, docker=docker)
+        return client
+    except RuntimeError as e:
+        if "No adb exe could be found" in str(e):
+            print("ADB executable not found. Please install Android platform tools and ensure 'adb' is in your PATH.")
+        raise
 
 
 def get_roi_images(frame,roi_dict):

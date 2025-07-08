@@ -42,20 +42,32 @@ NOTE: Only works for Android devices. Connect your phone to your computer and al
 ```
 git clone git@github.com:basemprince/pogo-bot.git
 ```
-2. Navigate to the cloned repository and install the required Python packages:
+2. Navigate to the cloned repository and run the setup script which installs
+   required dependencies and creates the conda environment:
 ```
 cd pogo-bot
-sudo apt-get update
-sudo apt-get install -y gcc g++ tesseract-ocr libtesseract-dev libleptonica-dev pkg-config ffmpeg libsm6 libxext6 tk
-pip install -r requirements.txt
+./setup.sh           # Linux/macOS
 ```
-4. In main.py, you need to edit the phone variable to add the name of your phone, and find the correct roi_adjust values that matches your phone resolution to put the roi on the correct location as shown in picture below. This will be a trial and error
+   On Windows run `setup.bat` instead. The environment installs `ipykernel` for
+   notebook support and `pyautogui` for GUI automation used in some example
+   notebooks.
+3. In `main.py`, edit the phone variable to add the name of your phone, and
+   find the correct `roi_adjust` values that match your phone resolution to put
+   the ROI on the correct location as shown in the picture below. This will be
+   a trial and error process.
 
-5. Run the main script:
+4. Ensure the `adb` server is running (`adb start-server`). The app will print a
+   helpful message if `adb` cannot be found in your `PATH`.
+
+5. Run the main script. On first run the app downloads data from PvPoke if the
+   files are missing, so it might take a few minutes:
 ```
 python main.py
 ```
-6. A ui will show up to set up the assign the correct locations of the ROI if its a phone that was not previously used. Best way is to play through a match and take screenshots of the battle and when a message is displayed in the middle. Align the boxes to correct locations, click save and close window:
+6. A UI will show up to set up the correct locations of the ROI if it's a phone
+   that was not previously used. Play through a match and take screenshots of the
+   battle and when a message is displayed in the middle. Align the boxes to the
+   correct locations, click save and close window:
 <p align="center">
 <img src="templates/roi_selector.png" width="400">
 </p>
