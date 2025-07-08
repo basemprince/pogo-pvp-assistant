@@ -19,6 +19,7 @@ import csv
 import shutil
 import math
 import sys
+import time
 
 def load_pokemon_names():
     # Load the JSON files
@@ -61,6 +62,16 @@ def load_phone_data(device_name):
         return None
 
 def get_phone_data(client):
+
+    timeout = 5
+    start = time.time()
+    while client.resolution is None and time.time() - start < timeout:
+        time.sleep(0.05)
+
+    if client.resolution is None:
+        raise RuntimeError("Timed out waiting for video resolution from scrcpy.")
+
+
     phone_data = load_phone_data(client.device_name)
 
     if phone_data is None:

@@ -1,319 +1,194 @@
-import os
+import argparse
 import socket
 import struct
-import threading
+import subprocess
 import time
-from time import sleep
-from typing import Any, Callable, Optional, Tuple, Union
-
-import cv2
+import av
+import pygame
+import os
+from typing import Optional, Tuple
 import numpy as np
-from adbutils import AdbConnection, AdbDevice, AdbError, Network, adb, AdbClient
-from av.codec import CodecContext
-from av.error import InvalidDataError
 
-from scrcpy.const import (
-    EVENT_DISCONNECT,
-    EVENT_FRAME,
-    EVENT_INIT,
-    LOCK_SCREEN_ORIENTATION_UNLOCKED,
-)
-from scrcpy.control import ControlSender
+# Mapping of scrcpy codec ids to codec names for PyAV
+CODECS = {
+    0x68323634: 'h264',  # "h264"
+    0x68323635: 'hevc',  # "h265"
+    0x00617631: 'av1',   # "av1"
+}
+
+HEADER_SIZE = 12  # frame header in the scrcpy protocol
+FLAG_CONFIG = 1 << 63
+FLAG_KEY_FRAME = 1 << 62
+PTS_MASK = FLAG_KEY_FRAME - 1
+
+SERVER_VERSION = "3.3.1"
+DEVICE_SERVER_PATH = "/data/local/tmp/scrcpy-server.jar"
+
+LOCK_SCREEN_ORIENTATION_UNLOCKED = 0
+
+
+def read_exact(sock: socket.socket, length: int) -> bytes:
+    """Read exactly `length` bytes from the socket."""
+    buf = bytearray()
+    while len(buf) < length:
+        chunk = sock.recv(length - len(buf))
+        if not chunk:
+            raise EOFError("socket closed")
+        buf.extend(chunk)
+    return bytes(buf)
 
 
 class Client:
     def __init__(
         self,
-        device: Optional[Union[AdbDevice, str, any]] = None,
-        max_width: int = 0,
-        bitrate: int = 8000000,
+        *,
+        adb: str = "adb",
+        server: str = "scrcpy-server-v3.3.1",
+        host: str = "127.0.0.1",
+        port: int = 27183,
+        ip: str = "127.0.0.1:5037",
+        max_width: int = 720,
+        bitrate: int = 8_000_000,
         max_fps: int = 0,
         flip: bool = False,
-        block_frame: bool = False,
         stay_awake: bool = True,
         lock_screen_orientation: int = LOCK_SCREEN_ORIENTATION_UNLOCKED,
-        connection_timeout: int = 3000,
-        encoder_name: Optional[str] = None,
-        ip: str = "127.0.0.1:5037",
-        docker: bool = False
-    ):
-        """
-        Create a scrcpy client, this client won't be started until you call the start function
-
-        Args:
-            device: Android device, select first one if none, from serial if str
-            max_width: frame width that will be broadcast from android server
-            bitrate: bitrate
-            max_fps: maximum fps, 0 means not limited (supported after android 10)
-            flip: flip the video
-            block_frame: only return nonempty frames, may block cv2 render thread
-            stay_awake: keep Android device awake
-            lock_screen_orientation: lock screen orientation, LOCK_SCREEN_ORIENTATION_*
-            connection_timeout: timeout for connection, unit is ms
-            encoder_name: encoder name, enum: [OMX.google.h264.encoder, OMX.qcom.video.encoder.avc, c2.qti.avc.encoder, c2.android.avc.encoder], default is None (Auto)
-        """
-        # Check Params
-        assert max_width >= 0, "max_width must be greater than or equal to 0"
-        assert bitrate >= 0, "bitrate must be greater than or equal to 0"
-        assert max_fps >= 0, "max_fps must be greater than or equal to 0"
-        assert (
-            -1 <= lock_screen_orientation <= 3
-        ), "lock_screen_orientation must be LOCK_SCREEN_ORIENTATION_*"
-        assert (
-            connection_timeout >= 0
-        ), "connection_timeout must be greater than or equal to 0"
-        assert encoder_name in [
-            None,
-            "OMX.google.h264.encoder",
-            "OMX.qcom.video.encoder.avc",
-            "c2.qti.avc.encoder",
-            "c2.android.avc.encoder",
-        ]
-
-        # Params
-        self.flip = flip
+        docker: bool = False,
+    ) -> None:
+        self.server = server
+        self.host = host
+        self.port = port
         self.max_width = max_width
         self.bitrate = bitrate
         self.max_fps = max_fps
-        self.block_frame = block_frame
+        self.flip = flip
         self.stay_awake = stay_awake
         self.lock_screen_orientation = lock_screen_orientation
-        self.connection_timeout = connection_timeout
-        self.encoder_name = encoder_name
+        self.docker = docker
 
-        # Connect to device
-        # if device is None:
-        #     device = adb.device_list()[0]
-        # elif isinstance(device, str):
-        #     device = adb.device(serial=device)
+        adb_host, sep, adb_port = ip.partition(":")
+        self.adb_cmd = [adb]
+        if sep:
+            self.adb_cmd += ["-H", adb_host, "-P", adb_port]
 
-        self.device = device
-        self.listeners = dict(frame=[], init=[], disconnect=[])
+        self.proc: subprocess.Popen | None = None
 
         # User accessible
         self.last_frame: Optional[np.ndarray] = None
         self.resolution: Optional[Tuple[int, int]] = None
         self.device_name: Optional[str] = None
-        self.control = ControlSender(self)
+        self.run()
 
-        # Need to destroy
-        self.alive = False
-        self.__server_stream: Optional[AdbConnection] = None
-        self.__video_socket: Optional[socket.socket] = None
-        self.control_socket: Optional[socket.socket] = None
-        self.control_socket_lock = threading.Lock()
+    # Start the scrcpy server on the device
+    def _start_server(self) -> None:
 
-        # Available if start with threaded or daemon_threaded
-        self.stream_loop_thread = None
-        self.ip = ip
-        self.docker = docker
-        self.start_server()
-
-    def start_server(self):
-        connected = False
-        while not connected:
-            if self.docker:
-                adb_client = AdbClient(host="host.docker.internal", port=5037)
-                adb_client.connect(self.ip)
-                device_list = adb_client.device_list()
-            else:
-                adb.connect(self.ip)
-                device_list = adb.device_list()
-            if device_list:
-                self.device = device_list[0]
-                connected = True
-            else:
-                print("No devices connected. Retrying in 5 seconds...")
-                sleep(5)  # Wait for 5 seconds before retrying
-
-        self.start(threaded=True)
-        print(f'Connected to: {self.device_name}')
-
-      
-
-    def __init_server_connection(self) -> None:
-        """
-        Connect to android server, there will be two sockets, video and control socket.
-        This method will set: video_socket, control_socket, resolution variables
-        """
-        for _ in range(self.connection_timeout // 100):
-            try:
-                self.__video_socket = self.device.create_connection(
-                    Network.LOCAL_ABSTRACT, "scrcpy"
-                )
-                break
-            except AdbError:
-                sleep(0.1)
-                pass
-        else:
-            raise ConnectionError("Failed to connect scrcpy-server after 3 seconds")
-
-        dummy_byte = self.__video_socket.recv(1)
-        if not len(dummy_byte) or dummy_byte != b"\x00":
-            raise ConnectionError("Did not receive Dummy Byte!")
-
-        self.control_socket = self.device.create_connection(
-            Network.LOCAL_ABSTRACT, "scrcpy"
-        )
-        self.device_name = self.__video_socket.recv(64).decode("utf-8").rstrip("\x00")
-        if not len(self.device_name):
-            raise ConnectionError("Did not receive Device Name!")
-
-        res = self.__video_socket.recv(4)
-        self.resolution = struct.unpack(">HH", res)
-        self.__video_socket.setblocking(False)
-
-    def __deploy_server(self) -> None:
-        """
-        Deploy server to android device
-        """
-        jar_name = "scrcpy-server.jar"
         server_file_path = os.path.join(
-            os.path.abspath(os.path.dirname(__file__)), jar_name
+            os.path.abspath(os.path.dirname(__file__)), self.server
         )
-        self.device.sync.push(server_file_path, f"/data/local/tmp/{jar_name}")
-        commands = [
-            f"CLASSPATH=/data/local/tmp/{jar_name}",
+        subprocess.run(self.adb_cmd + ["push", server_file_path, DEVICE_SERVER_PATH], check=True)
+        subprocess.run(self.adb_cmd + ["forward", f"tcp:{self.port}", "localabstract:scrcpy"], check=True)
+
+        cmd = self.adb_cmd + [
+            "shell",
+            f"CLASSPATH={DEVICE_SERVER_PATH}",
             "app_process",
             "/",
             "com.genymobile.scrcpy.Server",
-            "1.20",  # Scrcpy server version
-            "info",  # Log level: info, verbose...
-            f"{self.max_width}",  # Max screen width (long side)
-            f"{self.bitrate}",  # Bitrate of video
-            f"{self.max_fps}",  # Max frame per second
-            f"{self.lock_screen_orientation}",  # Lock screen orientation: LOCK_SCREEN_ORIENTATION
-            "true",  # Tunnel forward
-            "-",  # Crop screen
-            "false",  # Send frame rate to client
-            "true",  # Control enabled
-            "0",  # Display id
-            "false",  # Show touches
-            "true" if self.stay_awake else "false",  # Stay awake
-            "-",  # Codec (video encoding) options
-            self.encoder_name or "-",  # Encoder name
-            "false",  # Power off screen after server closed
+            SERVER_VERSION,
+            "tunnel_forward=true",
+            "audio=false",
+            "control=false",
+            "cleanup=false",
         ]
+        if self.max_width:
+            cmd.append(f"max_size={self.max_width}")
+        if self.bitrate:
+            cmd.append(f"video_bit_rate={self.bitrate}")
+        if self.max_fps:
+            cmd.append(f"max_fps={self.max_fps}")
+        if self.flip:
+            cmd.append("orientation=flip")
+        if self.stay_awake:
+            cmd.append("stay_awake=true")
+        if self.lock_screen_orientation != LOCK_SCREEN_ORIENTATION_UNLOCKED:
+            cmd.append(f"lock_screen_orientation={self.lock_screen_orientation}")
 
-        self.__server_stream: AdbConnection = self.device.shell(
-            commands,
-            stream=True,
-        )
+        self.proc = subprocess.Popen(cmd)
 
-        # Wait for server to start
-        self.__server_stream.read(10)
+    def _stop_server(self) -> None:
+        if self.proc:
+            self.proc.terminate()
+            self.proc.wait()
+        subprocess.run(self.adb_cmd + ["forward", "--remove", f"tcp:{self.port}"], check=True)
 
-    def start(self, threaded: bool = False, daemon_threaded: bool = False) -> None:
-        """
-        Start listening video stream
+    def run(self) -> None:
+        self._start_server()
+        time.sleep(1)
+        try:
+            with socket.create_connection((self.host, self.port)) as sock:
+                _dummy = read_exact(sock, 1)
+                self.device_name = read_exact(sock, 64).split(b"\0", 1)[0].decode()
 
-        Args:
-            threaded: Run stream loop in a different thread to avoid blocking
-            daemon_threaded: Run stream loop in a daemon thread to avoid blocking
-        """
-        assert self.alive is False
+                raw_codec = struct.unpack('>I', read_exact(sock, 4))[0]
+                self.resolution = struct.unpack('>II', read_exact(sock, 8))
+                width, height = self.resolution
+                codec_name = CODECS.get(raw_codec)
+                if not codec_name:
+                    raise RuntimeError(f"Unsupported codec id: {raw_codec:#x}")
 
-        self.__deploy_server()
-        self.__init_server_connection()
-        self.alive = True
-        self.__send_to_listeners(EVENT_INIT)
+                print(
+                    f"Connected to {self.device_name!r}: codec={codec_name} size={width}x{height}"
+                )
 
-        if threaded or daemon_threaded:
-            self.stream_loop_thread = threading.Thread(
-                target=self.__stream_loop, daemon=daemon_threaded
-            )
-            self.stream_loop_thread.start()
-        else:
-            self.__stream_loop()
+                decoder = av.CodecContext.create(codec_name, "r")
+                config_data = b""
+                screen = None
 
-    def stop(self) -> None:
-        """
-        Stop listening (both threaded and blocked)
-        """
-        self.alive = False
-        if self.__server_stream is not None:
-            try:
-                self.__server_stream.close()
-            except Exception:
-                pass
+                while True:
+                    header = read_exact(sock, HEADER_SIZE)
+                    pts_flags, size = struct.unpack('>QI', header)
+                    packet_data = read_exact(sock, size)
 
-        if self.control_socket is not None:
-            try:
-                self.control_socket.close()
-            except Exception:
-                pass
+                    if pts_flags & FLAG_CONFIG:
+                        config_data = packet_data
+                        continue
 
-        if self.__video_socket is not None:
-            try:
-                self.__video_socket.close()
-            except Exception:
-                pass
+                    if config_data:
+                        packet_data = config_data + packet_data
+                        config_data = b""
 
-    def __stream_loop(self) -> None:
-        """
-        Core loop for video parsing
-        """
-        codec = CodecContext.create("h264", "r")
-        while self.alive:
-            try:
-                raw_h264 = self.__video_socket.recv(0x10000)
-                if raw_h264 == b"":
-                    raise ConnectionError("Video stream is disconnected")
-                packets = codec.parse(raw_h264)
-                for packet in packets:
-                    frames = codec.decode(packet)
-                    for frame in frames:
-                        frame = frame.to_ndarray(format="bgr24")
-                        if self.flip:
-                            frame = cv2.flip(frame, 1)
-                        self.last_frame = frame
-                        self.resolution = (frame.shape[1], frame.shape[0])
-                        self.__send_to_listeners(EVENT_FRAME, frame)
-            except ConnectionError:
-                print("Video stream disconnected. attempting to reconnect")
-                self.alive = False
-                self.__send_to_listeners(EVENT_DISCONNECT)
-                self.stop()
-                self.start_server()  # Attempt to restart the server
-                break
-            except (BlockingIOError, InvalidDataError):
-                time.sleep(0.01)
-                if not self.block_frame:
-                    self.__send_to_listeners(EVENT_FRAME, None)
-            except (ConnectionError, OSError) as e:  # Socket Closed
-                if self.alive:
-                    self.__send_to_listeners(EVENT_DISCONNECT)
-                    self.stop()
-                    raise e
+                    packet = av.Packet(packet_data)
+                    packet.pts = pts_flags & PTS_MASK
+                    if pts_flags & FLAG_KEY_FRAME:
+                        try:
+                            packet.is_keyframe = True
+                        except AttributeError:
+                            pass
 
-    def add_listener(self, cls: str, listener: Callable[..., Any]) -> None:
-        """
-        Add a video listener
+                    for frame in decoder.decode(packet):
+                        img = frame.to_ndarray(format="rgb24")
+                        self.last_frame = img
+                        if screen is None:
+                            screen = pygame.display.set_mode((frame.width, frame.height))
+                        surf = pygame.image.frombuffer(img.tobytes(), (frame.width, frame.height), "RGB")
+                        screen.blit(surf, (0, 0))
+                        pygame.display.flip()
+                        for event in pygame.event.get():
+                            if event.type == pygame.QUIT:
+                                return
 
-        Args:
-            cls: Listener category, support: init, frame
-            listener: A function to receive frame np.ndarray
-        """
-        self.listeners[cls].append(listener)
+        finally:
+            self._stop_server()
+            pygame.quit()
 
-    def remove_listener(self, cls: str, listener: Callable[..., Any]) -> None:
-        """
-        Remove a video listener
 
-        Args:
-            cls: Listener category, support: init, frame
-            listener: A function to receive frame np.ndarray
-        """
-        self.listeners[cls].remove(listener)
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='scrcpy minimal client')
+    parser.add_argument('--adb', default='adb', help='adb executable')
+    parser.add_argument('--server', default='scrcpy-server-v3.3.1', help='path to scrcpy-server.jar')
+    parser.add_argument('--host', default='127.0.0.1', help='host to connect to')
+    parser.add_argument('--port', type=int, default=27183, help='local TCP port')
+    parser.add_argument('--adb-host', default='127.0.0.1:5037', help='adb server host:port')
+    args = parser.parse_args()
 
-    def __send_to_listeners(self, cls: str, *args, **kwargs) -> None:
-        """
-        Send event to listeners
-
-        Args:
-            cls: Listener type
-            *args: Other arguments
-            *kwargs: Other arguments
-        """
-        for fun in self.listeners[cls]:
-            fun(*args, **kwargs)
+    client = Client(adb=args.adb, server=args.server, host=args.host, port=args.port, ip=args.adb_host)

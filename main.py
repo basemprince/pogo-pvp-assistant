@@ -26,7 +26,7 @@ import os
 # In[2]:
 
 
-debug_window = True             # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
+debug_window = False             # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
 record_to_csv = True            # records the seen pokemon during the match in to a csv file (battle_records.csv)
 print_out = False               # extra printouts for debugging
 display_img = True              # shows the screen feed on the UI
@@ -37,7 +37,7 @@ roi_color = (0, 0, 0)           # color of boxes drawn on the screen feed
 roi_thick = 12                  # thickness of boxes drawn on the screen feed
 update_json_files = False       # to update the json files of the leagues and cups from pvpoke
 update_pokemon = False          # to update pokemon and moves json files from pvpoke
-ui_printout = True              # puts a terminal "like" box into the UI for printouts
+ui_printout = False              # puts a terminal "like" box into the UI for printouts
 
 
 # In[3]:
@@ -729,7 +729,7 @@ if __name__ == "__main__":
     client = utils.connect_to_device("127.0.0.1:5037", is_docker)
     roi_dict = utils.get_phone_data(client)
     feed_res = (int(client.resolution[0] * img_scale), int(client.resolution[1] * img_scale))
-
+    print(f"Connected to device with resolution: {client.resolution}, feed resolution: {feed_res}")
     app = PokemonBattleAssistant(update_timer, feed_res, cup_names_combo_box, debug_window)
     app.after(update_timer, lambda: app.update_ui(client)) 
     app.mainloop()
