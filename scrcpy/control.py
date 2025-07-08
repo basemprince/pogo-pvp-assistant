@@ -33,9 +33,7 @@ class ControlSender:
         self.parent = parent
 
     @inject(const.TYPE_INJECT_KEYCODE)
-    def keycode(
-        self, keycode: int, action: int = const.ACTION_DOWN, repeat: int = 0
-    ) -> bytes:
+    def keycode(self, keycode: int, action: int = const.ACTION_DOWN, repeat: int = 0) -> bytes:
         """
         Send keycode to device
 
@@ -59,9 +57,7 @@ class ControlSender:
         return struct.pack(">i", len(buffer)) + buffer
 
     @inject(const.TYPE_INJECT_TOUCH_EVENT)
-    def touch(
-        self, x: int, y: int, action: int = const.ACTION_DOWN, touch_id: int = -1
-    ) -> bytes:
+    def touch(self, x: int, y: int, action: int = const.ACTION_DOWN, touch_id: int = -1) -> bytes:
         """
         Touch screen
 

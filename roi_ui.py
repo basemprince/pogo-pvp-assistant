@@ -265,4 +265,5 @@ if __name__ == "__main__":
     client = utils.connect_to_device("127.0.0.1:5037")
     print(f"Connected to device with resolution: {client.resolution}")
     app = RoiSelector(client, img_scale, update_timer)
-    app.update_ui(client)    app.mainloop()
+    app.update_ui(client)
+    app.mainloop()

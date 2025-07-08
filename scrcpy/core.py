@@ -1,19 +1,20 @@
 import argparse
+import os
 import socket
 import struct
 import subprocess
-import time
-import av
-import pygame
-import os
 import threading
+import time
 from typing import Optional, Tuple
+
+import av
 import numpy as np
+import pygame
 
 CODECS = {
-    0x68323634: 'h264',
-    0x68323635: 'hevc',
-    0x00617631: 'av1',
+    0x68323634: "h264",
+    0x68323635: "hevc",
+    0x00617631: "av1",
 }
 
 HEADER_SIZE = 12
@@ -78,9 +79,7 @@ class Client:
         self.run()
 
     def _start_server(self) -> None:
-        server_file_path = os.path.join(
-            os.path.abspath(os.path.dirname(__file__)), self.server
-        )
+        server_file_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), self.server)
         subprocess.run(self.adb_cmd + ["push", server_file_path, DEVICE_SERVER_PATH], check=True)
         subprocess.run(self.adb_cmd + ["forward", f"tcp:{self.port}", "localabstract:scrcpy"], check=True)
 
@@ -129,8 +128,8 @@ class Client:
                 _ = read_exact(sock, 1)
                 self.device_name = read_exact(sock, 64).split(b"\0", 1)[0].decode()
 
-                raw_codec = struct.unpack('>I', read_exact(sock, 4))[0]
-                self.resolution = struct.unpack('>II', read_exact(sock, 8))
+                raw_codec = struct.unpack(">I", read_exact(sock, 4))[0]
+                self.resolution = struct.unpack(">II", read_exact(sock, 8))
                 width, height = self.resolution
                 codec_name = CODECS.get(raw_codec)
                 if not codec_name:
@@ -143,7 +142,7 @@ class Client:
 
                 while True:
                     header = read_exact(sock, HEADER_SIZE)
-                    pts_flags, size = struct.unpack('>QI', header)
+                    pts_flags, size = struct.unpack(">QI", header)
                     packet_data = read_exact(sock, size)
 
                     if pts_flags & FLAG_CONFIG:
@@ -170,13 +169,13 @@ class Client:
             self._stop_server()
 
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='scrcpy minimal client')
-    parser.add_argument('--adb', default='adb', help='adb executable')
-    parser.add_argument('--server', default='scrcpy-server-v3.3.1', help='path to scrcpy-server.jar')
-    parser.add_argument('--host', default='127.0.0.1', help='host to connect to')
-    parser.add_argument('--port', type=int, default=27183, help='local TCP port')
-    parser.add_argument('--adb-host', default='127.0.0.1:5037', help='adb server host:port')
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="scrcpy minimal client")
+    parser.add_argument("--adb", default="adb", help="adb executable")
+    parser.add_argument("--server", default="scrcpy-server-v3.3.1", help="path to scrcpy-server.jar")
+    parser.add_argument("--host", default="127.0.0.1", help="host to connect to")
+    parser.add_argument("--port", type=int, default=27183, help="local TCP port")
+    parser.add_argument("--adb-host", default="127.0.0.1:5037", help="adb server host:port")
     args = parser.parse_args()
 
     client = Client(adb=args.adb, server=args.server, host=args.host, port=args.port, ip=args.adb_host)

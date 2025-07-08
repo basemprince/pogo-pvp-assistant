@@ -764,4 +764,5 @@ class TextRedirector(object):
         except Exception:
             self.original_stdout.write(string)  # Redirect output to original stdout
 
-    def flush(self):        pass
+    def flush(self):
+        pass

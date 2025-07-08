@@ -9,4 +9,3 @@ requests==2.30.0
 tesserocr==2.6.0
 tk==0.1.0
 PyYAML == 6.0
-
