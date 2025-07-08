@@ -4,40 +4,41 @@
 # In[1]:
 
 
+import argparse
+import json
+import os
+import re
+import sys
+import threading
+import time
+import tkinter as tk
+
+import customtkinter as ctk
 import cv2
 import numpy as np
-import time
-import json
-import re
-from tesserocr import PyTessBaseAPI, PSM
-from PIL import ImageTk, Image
-import utils
-import tkinter as tk
-import customtkinter as ctk
-import threading
-import battle_tracker
-import sys
-import argparse
-import os
+from PIL import Image, ImageTk
+from tesserocr import PSM, PyTessBaseAPI
 
+import battle_tracker
+import utils
 
 # # Parameters
 
 # In[2]:
 
 
-debug_window = True             # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
-record_to_csv = True            # records the seen pokemon during the match in to a csv file (battle_records.csv)
-print_out = True               # extra printouts for debugging
-display_img = True              # shows the screen feed on the UI
-img_scale = 0.3                 # the scale of the screen feed
-update_timer = 50               # UI refresh rate in ms
-alignment_count_display = 5     # how many move counts to display for the move throw alignment
-roi_color = (0, 0, 0)           # color of boxes drawn on the screen feed
-roi_thick = 12                  # thickness of boxes drawn on the screen feed
-update_json_files = False       # to update the json files of the leagues and cups from pvpoke
-update_pokemon = False          # to update pokemon and moves json files from pvpoke
-ui_printout = True              # puts a terminal "like" box into the UI for printouts
+debug_window = True  # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
+record_to_csv = True  # records the seen pokemon during the match in to a csv file (battle_records.csv)
+print_out = True  # extra printouts for debugging
+display_img = True  # shows the screen feed on the UI
+img_scale = 0.3  # the scale of the screen feed
+update_timer = 50  # UI refresh rate in ms
+alignment_count_display = 5  # how many move counts to display for the move throw alignment
+roi_color = (0, 0, 0)  # color of boxes drawn on the screen feed
+roi_thick = 12  # thickness of boxes drawn on the screen feed
+update_json_files = False  # to update the json files of the leagues and cups from pvpoke
+update_pokemon = False  # to update pokemon and moves json files from pvpoke
+ui_printout = True  # puts a terminal "like" box into the UI for printouts
 
 
 # In[3]:
@@ -63,7 +64,7 @@ cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
 
 
 class PokemonBattleAssistant(ctk.CTk):
-    def __init__(self,update_timer,feed_res,cup_names,debug=False):
+    def __init__(self, update_timer, feed_res, cup_names, debug=False):
         super().__init__()
         self.title("Pokemon Battle Assistant")
         self.feed_res = feed_res
@@ -72,23 +73,22 @@ class PokemonBattleAssistant(ctk.CTk):
         mainframe.grid(column=0, row=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=30, pady=20)
 
         # Add the drop down menu
-        self.league_combobox = ctk.CTkComboBox(mainframe, values=cup_names,command=self.league_callback)
-        self.league_combobox.grid(column=0, row=0,sticky="W", padx=0, pady=10)
-        self.league_combobox.set('choose league')
+        self.league_combobox = ctk.CTkComboBox(mainframe, values=cup_names, command=self.league_callback)
+        self.league_combobox.grid(column=0, row=0, sticky="W", padx=0, pady=10)
+        self.league_combobox.set("choose league")
 
         # Define the update button
         update_button = ctk.CTkButton(mainframe, text="Update data from PvPoke", command=utils.update_data)
 
         update_button.grid(column=0, row=0, sticky="E", padx=10, pady=10)
 
-
-        opponent_frame = ctk.CTkLabel(mainframe, text="Opponent's Pokemon", text_color= 'gray', anchor="nw")
+        opponent_frame = ctk.CTkLabel(mainframe, text="Opponent's Pokemon", text_color="gray", anchor="nw")
         opponent_frame.grid(column=0, row=1, sticky=(tk.W, tk.E), padx=0, pady=0)
-        opponent_frame.grid_columnconfigure((0, 1, 2), weight=1) 
+        opponent_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
-        self.opp_pokemon_frames = [self.create_pokemon_frame(opponent_frame, i , 'opp') for i in range(3)]
+        self.opp_pokemon_frames = [self.create_pokemon_frame(opponent_frame, i, "opp") for i in range(3)]
         for i, frame in enumerate(self.opp_pokemon_frames):
-            frame.grid(column=i, row=1, padx=10, pady=(5,0))
+            frame.grid(column=i, row=1, padx=10, pady=(5, 0))
 
         info_frame = ctk.CTkFrame(mainframe)
         info_frame.grid(column=0, row=2, sticky=(tk.W, tk.E), padx=20, pady=20)
@@ -97,34 +97,36 @@ class PokemonBattleAssistant(ctk.CTk):
         info_frame.grid_columnconfigure(1, weight=1)
 
         self.switch_timer_label = ctk.CTkLabel(info_frame, text="Switch Timer: ")
-        self.switch_timer_label.grid(column=0, row=2, sticky="W", padx=(10,70), pady=10)
+        self.switch_timer_label.grid(column=0, row=2, sticky="W", padx=(10, 70), pady=10)
 
         self.correct_alignment_label = ctk.CTkLabel(info_frame, text="Correct Alignment: ")
-        self.correct_alignment_label.grid(column=1, row=2, sticky="W", padx=(0,70), pady=10)
+        self.correct_alignment_label.grid(column=1, row=2, sticky="W", padx=(0, 70), pady=10)
 
-        ctk.CTkButton(info_frame, text="Reset UI", command=self.reset_ui).grid(column=2, row=2, padx=(30,0), pady=10)
+        ctk.CTkButton(info_frame, text="Reset UI", command=self.reset_ui).grid(column=2, row=2, padx=(30, 0), pady=10)
         self.start_button = ctk.CTkButton(info_frame, text="Start Recording", command=self.recoding)
-        self.start_button.grid(column=5,sticky='E', row=2, padx=10, pady=10)
+        self.start_button.grid(column=5, sticky="E", row=2, padx=10, pady=10)
 
-        my_frame = ctk.CTkLabel(mainframe, text="Your Pokemon",text_color= 'gray',anchor="nw")
+        my_frame = ctk.CTkLabel(mainframe, text="Your Pokemon", text_color="gray", anchor="nw")
         my_frame.grid(column=0, row=3, sticky=(tk.W, tk.E), padx=0, pady=0)
-        my_frame.grid_columnconfigure((0, 1, 2), weight=1) 
+        my_frame.grid_columnconfigure((0, 1, 2), weight=1)
 
-        self.my_pokemon_frames = [self.create_pokemon_frame(my_frame,i , "me") for i in range(3)]
+        self.my_pokemon_frames = [self.create_pokemon_frame(my_frame, i, "me") for i in range(3)]
         for i, frame in enumerate(self.my_pokemon_frames):
-            frame.grid(column=i, row=3, padx=10, pady=(5,10))
+            frame.grid(column=i, row=3, padx=10, pady=(5, 10))
 
         pil_image = Image.new("RGB", feed_res)
 
         self.elapsed_time_label = ctk.CTkLabel(mainframe, text="0")
-        self.elapsed_time_label.grid(column=0, row=5, sticky='E', padx=0, pady=0) 
+        self.elapsed_time_label.grid(column=0, row=5, sticky="E", padx=0, pady=0)
 
         # frame to hold command line output and image
         output_image_frame = ctk.CTkFrame(mainframe)
         output_image_frame.grid(column=0, row=4, sticky=(tk.W, tk.E), padx=0, pady=0)
 
-        # Add command line output 
-        self.command_line_output = tk.Text(output_image_frame, bg='black', fg='white', height=pil_image.height/17, width=110)
+        # Add command line output
+        self.command_line_output = tk.Text(
+            output_image_frame, bg="black", fg="white", height=pil_image.height / 17, width=110
+        )
 
         if display_img:
             output_image_frame.grid_columnconfigure(0, weight=1)
@@ -132,19 +134,18 @@ class PokemonBattleAssistant(ctk.CTk):
             self.command_line_output.grid(column=0, row=0, sticky=(tk.W, tk.E), padx=0, pady=0)
 
             # Add image
-            self.my_image = ctk.CTkImage(light_image=pil_image,dark_image=pil_image, size=feed_res)
-            self.image_label = ctk.CTkLabel(output_image_frame, text='',image=self.my_image)
+            self.my_image = ctk.CTkImage(light_image=pil_image, dark_image=pil_image, size=feed_res)
+            self.image_label = ctk.CTkLabel(output_image_frame, text="", image=self.my_image)
             self.image_label.grid(column=1, row=0, pady=0)
         else:
             output_image_frame.grid_columnconfigure(0, weight=2)  # Set the weight to a larger value
             self.command_line_output.grid(column=0, row=0, sticky=(tk.W, tk.E), padx=0, pady=0)
 
-
-        self.vid_res = (int(client.resolution[0]/2), int(client.resolution[1]/2))
+        self.vid_res = (int(client.resolution[0] / 2), int(client.resolution[1] / 2))
         self.threshold = 500
         self.ui_reset_counter = 10
-        self.get_ready_keywords = ['get', 'ready']
-        self.attack_incoming_keywords = ['attack', 'incoming']
+        self.get_ready_keywords = ["get", "ready"]
+        self.attack_incoming_keywords = ["attack", "incoming"]
 
         # to push output to UI
         if ui_printout:
@@ -155,7 +156,7 @@ class PokemonBattleAssistant(ctk.CTk):
         self.debug_window = None
         if debug:
             self.debug_window = tk.Toplevel()
-            self.debug_window.title('Debug Window')
+            self.debug_window.title("Debug Window")
 
             # Creating an empty dictionary to store the labels for each ROI
             self.debug_labels = {}
@@ -195,30 +196,57 @@ class PokemonBattleAssistant(ctk.CTk):
         frame = ctk.CTkFrame(master)
         box_width = 250
 
-        frame.pokemon_name_label = ctk.CTkComboBox(frame, values=[f"Pokemon {num+1}"], font=("Arial", 20), command=lambda choice,
-                                box_type='pokemon_name_label', side=side, num=num: self.pk_callback(choice, box_type, side, num), width=200)
+        frame.pokemon_name_label = ctk.CTkComboBox(
+            frame,
+            values=[f"Pokemon {num+1}"],
+            font=("Arial", 20),
+            command=lambda choice, box_type="pokemon_name_label", side=side, num=num: self.pk_callback(
+                choice, box_type, side, num
+            ),
+            width=200,
+        )
         frame.pokemon_name_label.grid(column=0, row=0, sticky="W", padx=10, pady=10)
 
-        frame.fast_move = ctk.CTkComboBox(frame, values=["Fast Move"], command=lambda choice, box_type='fast_move', 
-                                          side=side, num=num: self.pk_callback(choice, box_type, side, num), width=box_width)
+        frame.fast_move = ctk.CTkComboBox(
+            frame,
+            values=["Fast Move"],
+            command=lambda choice, box_type="fast_move", side=side, num=num: self.pk_callback(
+                choice, box_type, side, num
+            ),
+            width=box_width,
+        )
         frame.fast_move.grid(column=0, row=1, sticky="W", padx=10, pady=10)
 
-        frame.charge_move1 = ctk.CTkComboBox(frame, values=["Charge Move 1"], command=lambda choice, box_type='charge_move1', 
-                                          side=side, num=num: self.pk_charge_callback(choice, box_type, side, num), width=box_width)
+        frame.charge_move1 = ctk.CTkComboBox(
+            frame,
+            values=["Charge Move 1"],
+            command=lambda choice, box_type="charge_move1", side=side, num=num: self.pk_charge_callback(
+                choice, box_type, side, num
+            ),
+            width=box_width,
+        )
         frame.charge_move1.grid(column=0, row=2, sticky="W", padx=10, pady=10)
 
-        frame.charge_move1_progress = ctk.CTkProgressBar(frame, orientation="horizontal", height=20, width=50,corner_radius=0,
-                                                         fg_color='gray',border_color='black')
-        frame.charge_move1_progress.set(0) 
+        frame.charge_move1_progress = ctk.CTkProgressBar(
+            frame, orientation="horizontal", height=20, width=50, corner_radius=0, fg_color="gray", border_color="black"
+        )
+        frame.charge_move1_progress.set(0)
         frame.charge_move1_progress.grid(column=1, row=2, sticky="W", padx=10, pady=10)
 
-        frame.charge_move2 = ctk.CTkComboBox(frame, values=["Charge Move 2"], command=lambda choice, box_type='charge_move2', 
-                                          side=side, num=num: self.pk_charge_callback(choice, box_type, side, num), width=box_width)
+        frame.charge_move2 = ctk.CTkComboBox(
+            frame,
+            values=["Charge Move 2"],
+            command=lambda choice, box_type="charge_move2", side=side, num=num: self.pk_charge_callback(
+                choice, box_type, side, num
+            ),
+            width=box_width,
+        )
         frame.charge_move2.grid(column=0, row=3, sticky="W", padx=10, pady=10)
 
-        frame.charge_move2_progress = ctk.CTkProgressBar(frame, orientation="horizontal", height=20, width=50,corner_radius=0,
-                                                        fg_color='gray',border_color='black')
-        frame.charge_move2_progress.set(0) 
+        frame.charge_move2_progress = ctk.CTkProgressBar(
+            frame, orientation="horizontal", height=20, width=50, corner_radius=0, fg_color="gray", border_color="black"
+        )
+        frame.charge_move2_progress.set(0)
         frame.charge_move2_progress.grid(column=1, row=3, sticky="W", padx=10, pady=10)
 
         self.switch_threshold = 3
@@ -243,21 +271,21 @@ class PokemonBattleAssistant(ctk.CTk):
 
         self.my_emblem_history = []
         self.opp_emblem_history = []
-        
-        self.move_type = ['fast_move','charge_move1','charge_move2']
-        self.move_type_disp = ['Fast Move','Charge Move 1','Charge Move 2']
+
+        self.move_type = ["fast_move", "charge_move1", "charge_move2"]
+        self.move_type_disp = ["Fast Move", "Charge Move 1", "Charge Move 2"]
 
         self.league_detector = utils.LeagueDetector()
 
         self.record_vid = False
         self.out = None
 
-        self.my_player = battle_tracker.Player('me')
-        self.opp_player = battle_tracker.Player('opp')
+        self.my_player = battle_tracker.Player("me")
+        self.opp_player = battle_tracker.Player("opp")
         self.match = battle_tracker.Match(alignment_count_display)
 
-        self.frames_map = {'me': self.my_pokemon_frames,'my': self.my_pokemon_frames, 'opp': self.opp_pokemon_frames}
-        self.player_map = {'me': self.my_player, 'my': self.my_player, 'opp': self.opp_player}
+        self.frames_map = {"me": self.my_pokemon_frames, "my": self.my_pokemon_frames, "opp": self.opp_pokemon_frames}
+        self.player_map = {"me": self.my_player, "my": self.my_player, "opp": self.opp_player}
 
         self.my_typing_is_correct = False
         self.opp_typing_is_correct = False
@@ -268,96 +296,105 @@ class PokemonBattleAssistant(ctk.CTk):
         self.first_charge_handler = utils.ChargeCircleDetector()
         self.second_charge_handler = utils.ChargeCircleDetector()
 
-
-    def reset_ui(self,reset_league = True):
+    def reset_ui(self, reset_league=True):
         self.initialize_variables()
         if reset_league:
-            self.league_combobox.set('choose league')
+            self.league_combobox.set("choose league")
         else:
             current_choice = self.league_combobox.get()
             self.league_callback(current_choice)
-            print('UI has been reset and chosen league reloaded')
-        for side in ['opp','me']:
+            print("UI has been reset and chosen league reloaded")
+        for side in ["opp", "me"]:
             for number in range(len(self.frames_map[side])):
-                self.update_label(side,number, 'pokemon_name_label', f'Pokemon {number+1}')
-                for move,move_disp in zip(self.move_type,self.move_type_disp):
-                    self.update_label(side,number, move, move_disp)
-                for charge_mv_num in [1,2]:
-                    progress = self.find_label(side,number,f'charge_move{charge_mv_num}_progress')
+                self.update_label(side, number, "pokemon_name_label", f"Pokemon {number+1}")
+                for move, move_disp in zip(self.move_type, self.move_type_disp):
+                    self.update_label(side, number, move, move_disp)
+                for charge_mv_num in [1, 2]:
+                    progress = self.find_label(side, number, f"charge_move{charge_mv_num}_progress")
                     progress.set(0)
                     colors = self.progress_bar_color(0)
-                    progress.configure(fg_color=colors[1],progress_color=colors[2])
+                    progress.configure(fg_color=colors[1], progress_color=colors[2])
                 self.highlight_off(self.frames_map[side][number])
 
-        self.switch_timer_label.configure(text=f"Switch Timer: ")
+        self.switch_timer_label.configure(text="Switch Timer: ")
         self.correct_alignment_label.configure(text="Correct Alignemnt: ")
 
-
     def pk_callback(self, choice, box_type, side, num):
- 
-        label = self.find_label(side,num,'pokemon_name_label')
+
+        label = self.find_label(side, num, "pokemon_name_label")
         chosen_pk_ind = self.get_index(label)
         self.player_map[side].ui_chosen_pk_ind[num] = chosen_pk_ind
 
         mv_recom = self.player_map[side].pokemons[num][chosen_pk_ind].recommended_moveset
-        _, fast_moves, charge_moves = self.player_map[side].ui_helper(num,chosen_pk_ind)
-        if box_type == 'pokemon_name_label':
-            self.update_label(side, num, 'fast_move', fast_moves)
-            fast_mv_label = self.find_label(side,num,'fast_move')
+        _, fast_moves, charge_moves = self.player_map[side].ui_helper(num, chosen_pk_ind)
+        if box_type == "pokemon_name_label":
+            self.update_label(side, num, "fast_move", fast_moves)
+            fast_mv_label = self.find_label(side, num, "fast_move")
             fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].fast_moves[mv_recom[0]]
             fast_mv_label.set(fast_mv.move_count_str())
         else:
-            fast_mv = choice.split(' - ')[0].upper().replace(" ", "_")
+            fast_mv = choice.split(" - ")[0].upper().replace(" ", "_")
             self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0] = fast_mv
             fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].fast_moves[fast_mv]
 
-        for i in [1,2]:
-            self.update_label(side,num, f'charge_move{i}', charge_moves)
-            charge_label = self.find_label(side,num,f'charge_move{i}')
-            charge_label.set(self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[mv_recom[i]].move_count_str(fast_mv.move_id))
+        for i in [1, 2]:
+            self.update_label(side, num, f"charge_move{i}", charge_moves)
+            charge_label = self.find_label(side, num, f"charge_move{i}")
+            charge_label.set(
+                self.player_map[side]
+                .pokemons[num][chosen_pk_ind]
+                .charge_moves[mv_recom[i]]
+                .move_count_str(fast_mv.move_id)
+            )
 
-    def pk_charge_callback(self,choice,box_type,side,num):
-        charge_num= int(box_type[-1])
-        move = choice.split(' - ')[0].upper().replace(" ", "_")
-        self.player_map[side].pokemons[num][self.player_map[side].ui_chosen_pk_ind[num]].ui_chosen_moveset[charge_num] = move
-
+    def pk_charge_callback(self, choice, box_type, side, num):
+        charge_num = int(box_type[-1])
+        move = choice.split(" - ")[0].upper().replace(" ", "_")
+        self.player_map[side].pokemons[num][self.player_map[side].ui_chosen_pk_ind[num]].ui_chosen_moveset[
+            charge_num
+        ] = move
 
     def charge_move_progress(self):
         try:
-            for side in ['opp','me']:
+            for side in ["opp", "me"]:
                 if self.player_map[side].initialized:
                     num = self.player_map[side].current_pokemon_index
                     chosen_pk_ind = self.player_map[side].ui_chosen_pk_ind[num]
 
                     fast_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[0]
-                    for i in [1,2]:
+                    for i in [1, 2]:
                         charge_mv = self.player_map[side].pokemons[num][chosen_pk_ind].ui_chosen_moveset[i]
-                        accum_energy = self.player_map[side].pokemons[num][chosen_pk_ind].charge_moves[charge_mv].accum_energy[fast_mv]
-                        progress = self.find_label(side,num,f'charge_move{i}_progress')
+                        accum_energy = (
+                            self.player_map[side]
+                            .pokemons[num][chosen_pk_ind]
+                            .charge_moves[charge_mv]
+                            .accum_energy[fast_mv]
+                        )
+                        progress = self.find_label(side, num, f"charge_move{i}_progress")
                         colors = self.progress_bar_color(accum_energy)
                         progress.set(colors[0])
-                        progress.configure(fg_color=colors[1],progress_color=colors[2])
+                        progress.configure(fg_color=colors[1], progress_color=colors[2])
         except Exception as e:
             print(f"Error in charge_move_progress: {str(e)}")
 
-    def progress_bar_color(self,energy):
+    def progress_bar_color(self, energy):
         if 0 <= energy < 1:
-            return (energy,"gray", "#378df0")
+            return (energy, "gray", "#378df0")
         elif 1 <= energy < 2:
-            return (energy-1,"#378df0", "#1a2182")
+            return (energy - 1, "#378df0", "#1a2182")
         elif 2 <= energy <= 3:
-            return (energy-2,"#1a2182", "#080936")
+            return (energy - 2, "#1a2182", "#080936")
 
     def highlight_on(self, frame):
-        if frame.cget('fg_color') != "green":
+        if frame.cget("fg_color") != "green":
             frame.configure(fg_color="green")
 
     def highlight_red(self, frame):
-        if frame.cget('fg_color') != "red":
+        if frame.cget("fg_color") != "red":
             frame.configure(fg_color="red")
 
     def highlight_off(self, frame):
-        if frame.cget('fg_color') != "transparent":
+        if frame.cget("fg_color") != "transparent":
             frame.configure(fg_color="transparent")
 
     def update_highlight(self, side):
@@ -372,11 +409,11 @@ class PokemonBattleAssistant(ctk.CTk):
             else:
                 self.highlight_off(frame)
 
-    def league_callback(self,choice):
+    def league_callback(self, choice):
         self.league = choice
         self.league_pok = f"json_files/rankings/{self.league}.json"
         try:
-            with open(self.league_pok, 'r') as file:
+            with open(self.league_pok, "r") as file:
                 self.league_pok = json.load(file)
                 print(f"Loaded {self.league} JSON data")
         except FileNotFoundError:
@@ -385,8 +422,8 @@ class PokemonBattleAssistant(ctk.CTk):
     def recoding(self):
         if self.start_button.cget("text") == "Start Recording":
             self.start_button.configure(text="Stop Recording")
-            filename = utils.get_next_filename('videos')
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v') 
+            filename = utils.get_next_filename("videos")
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
             self.out = cv2.VideoWriter(filename, fourcc, 60.0, self.vid_res)
             self.record_vid = True
             self.stream_vid = threading.Thread(target=self.vid_stream, daemon=False)
@@ -395,11 +432,10 @@ class PokemonBattleAssistant(ctk.CTk):
             self.start_button.configure(text="Start Recording")
             self.record_vid = False  # Ensure recording stops
             self.stream_vid.join()  # Wait for the thread to actually stop
-            print('releasing video')
+            print("releasing video")
             self.out.release()
 
-
-    def extract_thrown_move(self, ocr_output,time_threshold = 2):
+    def extract_thrown_move(self, ocr_output, time_threshold=2):
         current_time = time.time()
 
         if current_time - self.extract_throw_time_helper < time_threshold:
@@ -410,13 +446,13 @@ class PokemonBattleAssistant(ctk.CTk):
         if any(word in ocr_output_strip for word in self.get_ready_keywords):
             self.Player_throw_move = self.my_player
             self.extract_throw_time_helper = current_time
-            print('Detected my player throwing a move')
+            print("Detected my player throwing a move")
         elif any(word in ocr_output_strip for word in self.attack_incoming_keywords):
             self.Player_throw_move = self.opp_player
             self.extract_throw_time_helper = current_time
-            print('Detected opp player throwing a move')
+            print("Detected opp player throwing a move")
 
-        match = re.search(r'(.+?) used (.+)', ocr_output)
+        match = re.search(r"(.+?) used (.+)", ocr_output)
         if match:
             pokemon, move = match.groups()
 
@@ -429,14 +465,14 @@ class PokemonBattleAssistant(ctk.CTk):
                     closest_index = player_pokemons.index(closest)
                     self.Player_throw_move.pokemon_energy_consumer(move, closest_index)
                     self.extract_throw_time_helper = current_time
-                    self.Player_throw_move = None 
+                    self.Player_throw_move = None
                 else:
                     print(f"Message info did not match {pokemon, move}")
             else:
                 my_pk = self.my_player.pk_battle_name[self.my_player.current_pokemon_index]
                 opp_pk = self.opp_player.pk_battle_name[self.opp_player.current_pokemon_index]
                 closest = utils.closest_name(pokemon, [my_pk, opp_pk])
-                self.Player_throw_move = None 
+                self.Player_throw_move = None
                 if closest == my_pk:
                     self.my_player.pokemon_energy_consumer(move)
                     self.extract_throw_time_helper = current_time
@@ -449,15 +485,15 @@ class PokemonBattleAssistant(ctk.CTk):
             return pokemon, move
         else:
             return None, None
-      
+
     def vid_stream(self):
         while self.record_vid:
             frame = client.last_frame
             resized_frame = cv2.resize(frame, self.vid_res)
             self.out.write(resized_frame)
-            time.sleep(0.01) 
+            time.sleep(0.01)
 
-    def moveset_update(self,side):
+    def moveset_update(self, side):
         current_ind = self.player_map[side].current_pokemon_index
         pk_recom = self.player_map[side].recommended_pk_ind[current_ind]
         if pk_recom is None:
@@ -466,24 +502,37 @@ class PokemonBattleAssistant(ctk.CTk):
         mv_recom = self.player_map[side].pokemons[current_ind][pk_recom].recommended_moveset
         pk_names, fast_moves, charge_moves = self.player_map[side].ui_helper()
 
-        self.update_label(side,self.player_map[side].current_pokemon_index,'pokemon_name_label',pk_names)
-        pk_label = self.find_label(side,current_ind,'pokemon_name_label')
-        pk_name = self.player_map[side].pokemons[current_ind][self.player_map[side].recommended_pk_ind[current_ind]].species_name
+        self.update_label(side, self.player_map[side].current_pokemon_index, "pokemon_name_label", pk_names)
+        pk_label = self.find_label(side, current_ind, "pokemon_name_label")
+        pk_name = (
+            self.player_map[side]
+            .pokemons[current_ind][self.player_map[side].recommended_pk_ind[current_ind]]
+            .species_name
+        )
         pk_label.set(pk_name)
 
-        self.update_label(side,current_ind, 'fast_move', fast_moves)
-        fast_mv_label = self.find_label(side,current_ind,'fast_move')
+        self.update_label(side, current_ind, "fast_move", fast_moves)
+        fast_mv_label = self.find_label(side, current_ind, "fast_move")
         fast_mv = self.player_map[side].pokemons[current_ind][pk_recom].fast_moves[mv_recom[0]]
         fast_mv_label.set(fast_mv.move_count_str())
 
-        self.update_label(side,current_ind, 'charge_move1', charge_moves)
-        charge_label = self.find_label(side,current_ind,'charge_move1')
-        charge_label.set(self.player_map[side].pokemons[current_ind][pk_recom].charge_moves[mv_recom[1]].move_count_str(fast_mv.move_id))
+        self.update_label(side, current_ind, "charge_move1", charge_moves)
+        charge_label = self.find_label(side, current_ind, "charge_move1")
+        charge_label.set(
+            self.player_map[side]
+            .pokemons[current_ind][pk_recom]
+            .charge_moves[mv_recom[1]]
+            .move_count_str(fast_mv.move_id)
+        )
 
-        self.update_label(side,current_ind, 'charge_move2', charge_moves)
-        charge_label = self.find_label(side,current_ind,'charge_move2')
-        charge_label.set(self.player_map[side].pokemons[current_ind][pk_recom].charge_moves[mv_recom[2]].move_count_str(fast_mv.move_id))        
-
+        self.update_label(side, current_ind, "charge_move2", charge_moves)
+        charge_label = self.find_label(side, current_ind, "charge_move2")
+        charge_label.set(
+            self.player_map[side]
+            .pokemons[current_ind][pk_recom]
+            .charge_moves[mv_recom[2]]
+            .move_count_str(fast_mv.move_id)
+        )
 
     def ball_counter(self, player_id, pokeballs_roi):
         player = self.player_map[player_id]
@@ -500,11 +549,11 @@ class PokemonBattleAssistant(ctk.CTk):
     def update_pokeballs_counts(self, roi_images):
         fainted = False
 
-        for side in ['my', 'opp']:
-            pokeballs_roi = roi_images[f'{side}_pokeballs_roi']
+        for side in ["my", "opp"]:
+            pokeballs_roi = roi_images[f"{side}_pokeballs_roi"]
             player = self.player_map[side]
-            pokeballs_count,mask = utils.count_pokeballs(pokeballs_roi)
-            self.update_debug_window({f'{side}_pokeballs':mask})
+            pokeballs_count, mask = utils.count_pokeballs(pokeballs_roi)
+            self.update_debug_window({f"{side}_pokeballs": mask})
             if pokeballs_count < player.pokeball_count:
                 print(f"{side.capitalize()}'s Pokemon fainted!")
                 player.pokeball_count = pokeballs_count
@@ -513,32 +562,34 @@ class PokemonBattleAssistant(ctk.CTk):
 
         for player in self.player_map.values():
             player.pokemon_energy_updater(not fainted)
-        
 
-    def ocr_detect(self,img):
+    def ocr_detect(self, img):
         with PyTessBaseAPI(psm=PSM.AUTO_OSD) as api:
             api.SetImage(img)
             api.Recognize()
             return api.GetUTF8Text()
 
-
     def handle_emblem_update(self, update_me, update_opp, roi_images):
         try:
             if update_me:
-                self.moveset_update('me')
-                if 'my_typing_roi' in roi_images:
-                    my_emblems,emblem_roi = utils.detect_emblems(roi_images['my_typing_roi'])
-                    self.update_debug_window({'my_typing_img':emblem_roi})
-                    self.my_typing_is_correct = True if set(my_emblems) == set(self.my_player.on_field_typing) else False
+                self.moveset_update("me")
+                if "my_typing_roi" in roi_images:
+                    my_emblems, emblem_roi = utils.detect_emblems(roi_images["my_typing_roi"])
+                    self.update_debug_window({"my_typing_img": emblem_roi})
+                    self.my_typing_is_correct = (
+                        True if set(my_emblems) == set(self.my_player.on_field_typing) else False
+                    )
                 else:
                     print("'my_typing_roi' not found in 'roi_images'.")
 
             if update_opp:
-                self.moveset_update('opp')
-                if 'opp_typing_roi' in roi_images:
-                    opp_emblems, emblem_roi = utils.detect_emblems(roi_images['opp_typing_roi'])
-                    self.update_debug_window({'opp_typing_img':emblem_roi})
-                    self.opp_typing_is_correct = True if set(opp_emblems) == set(self.opp_player.on_field_typing) else False
+                self.moveset_update("opp")
+                if "opp_typing_roi" in roi_images:
+                    opp_emblems, emblem_roi = utils.detect_emblems(roi_images["opp_typing_roi"])
+                    self.update_debug_window({"opp_typing_img": emblem_roi})
+                    self.opp_typing_is_correct = (
+                        True if set(opp_emblems) == set(self.opp_player.on_field_typing) else False
+                    )
                 else:
                     print("'opp_typing_roi' not found in 'roi_images'.")
         except Exception as e:
@@ -546,46 +597,50 @@ class PokemonBattleAssistant(ctk.CTk):
 
     def handle_emblem_update2(self, roi_images):
         try:
-            self.moveset_update('me')
-            if 'my_typing_roi' in roi_images:
-                my_emblems, emblem_roi = utils.detect_emblems(roi_images['my_typing_roi'])
+            self.moveset_update("me")
+            if "my_typing_roi" in roi_images:
+                my_emblems, emblem_roi = utils.detect_emblems(roi_images["my_typing_roi"])
                 self.my_emblem_history.append(set(my_emblems))
                 if len(self.my_emblem_history) > self.switch_threshold:
                     self.my_emblem_history.pop(0)
                 if all(emblem_set == self.my_emblem_history[0] for emblem_set in self.my_emblem_history):
                     self.my_typing_is_correct = self.my_emblem_history[0] == set(self.my_player.on_field_typing)
-                self.update_debug_window({'my_typing_img': emblem_roi})
+                self.update_debug_window({"my_typing_img": emblem_roi})
 
-            self.moveset_update('opp')
-            if 'opp_typing_roi' in roi_images:
-                opp_emblems, emblem_roi = utils.detect_emblems(roi_images['opp_typing_roi'])
+            self.moveset_update("opp")
+            if "opp_typing_roi" in roi_images:
+                opp_emblems, emblem_roi = utils.detect_emblems(roi_images["opp_typing_roi"])
                 self.opp_emblem_history.append(set(opp_emblems))
                 if len(self.opp_emblem_history) > self.switch_threshold:
                     self.opp_emblem_history.pop(0)
                 if all(emblem_set == self.opp_emblem_history[0] for emblem_set in self.opp_emblem_history):
                     self.opp_typing_is_correct = self.opp_emblem_history[0] == set(self.opp_player.on_field_typing)
-                self.update_debug_window({'opp_typing_img': emblem_roi})
+                self.update_debug_window({"opp_typing_img": emblem_roi})
 
         except Exception as e:
             print(f"Error in handle_emblem_update: {str(e)}")
 
-    def handle_charge_move_circle_detect(self,roi_images):
+    def handle_charge_move_circle_detect(self, roi_images):
         try:
-            first_perc,first_charge_mv_roi= self.first_charge_handler.detect_charge_circles(roi_images['first_charge_mv_roi'])
-            second_perc, second_charge_mv_roi= self.second_charge_handler.detect_charge_circles(roi_images['second_charge_mv_roi'])
+            first_perc, first_charge_mv_roi = self.first_charge_handler.detect_charge_circles(
+                roi_images["first_charge_mv_roi"]
+            )
+            second_perc, second_charge_mv_roi = self.second_charge_handler.detect_charge_circles(
+                roi_images["second_charge_mv_roi"]
+            )
             # print(f'first_perc:{round(first_perc,2)}, second_perc:{round(second_perc,2)}')
-            self.update_debug_window({'first_charge_mv_img':first_charge_mv_roi})
-            self.update_debug_window({'second_charge_mv_img':second_charge_mv_roi})
+            self.update_debug_window({"first_charge_mv_img": first_charge_mv_roi})
+            self.update_debug_window({"second_charge_mv_img": second_charge_mv_roi})
         except Exception as e:
-            print(f"Error in handle_charge_move_circle_detect: {str(e)}")          
+            print(f"Error in handle_charge_move_circle_detect: {str(e)}")
 
-    def update_ui(self,client):
+    def update_ui(self, client):
         loop_start_time = time.time()
         frame = client.last_frame
         # frame = cv2.imread('templates/screenshot.png')
         if frame is not None:
 
-            roi_images = utils.get_roi_images(frame,roi_dict)
+            roi_images = utils.get_roi_images(frame, roi_dict)
 
             # if self.match.match_started():
             #     if not self.match.charge_mv_event:
@@ -604,14 +659,17 @@ class PokemonBattleAssistant(ctk.CTk):
             #             self.opp_typing_is_correct = False
             #             # self.opp_player.pokemon_energy_updater(False)
 
-                                        
-            if utils.mse(roi_images['my_roi'], self.prev_my_roi_img) > self.threshold \
-            or utils.mse(roi_images['opp_roi'], self.prev_opp_roi_img) > self.threshold:
-                
-                self.prev_my_roi_img, thresh_my_roi = utils.process_image(roi_images['my_roi'])
-                self.prev_opp_roi_img, thresh_opp_roi = utils.process_image(roi_images['opp_roi'])
-                self.prev_msg_roi_img, thresh_msg_roi = utils.process_image(roi_images['msgs_roi'])
-                self.update_debug_window({'thresh_my_roi':thresh_my_roi,'thresh_opp_roi':thresh_opp_roi,'thresh_msg_roi':thresh_msg_roi})
+            if (
+                utils.mse(roi_images["my_roi"], self.prev_my_roi_img) > self.threshold
+                or utils.mse(roi_images["opp_roi"], self.prev_opp_roi_img) > self.threshold
+            ):
+
+                self.prev_my_roi_img, thresh_my_roi = utils.process_image(roi_images["my_roi"])
+                self.prev_opp_roi_img, thresh_opp_roi = utils.process_image(roi_images["opp_roi"])
+                self.prev_msg_roi_img, thresh_msg_roi = utils.process_image(roi_images["msgs_roi"])
+                self.update_debug_window(
+                    {"thresh_my_roi": thresh_my_roi, "thresh_opp_roi": thresh_opp_roi, "thresh_msg_roi": thresh_msg_roi}
+                )
                 my_info = self.ocr_detect(thresh_my_roi)
                 opp_info = self.ocr_detect(thresh_opp_roi)
 
@@ -620,30 +678,33 @@ class PokemonBattleAssistant(ctk.CTk):
                     print("Opponent Info:", opp_info)
 
                 # for auto-detection if league not chosen
-                if self.league_combobox.get() == 'choose league':
+                if self.league_combobox.get() == "choose league":
                     self.league, self.league_pok = self.league_detector.detect_league(my_info, opp_info)
                     if self.league:
                         self.league_combobox.set(self.league)
-                    
+
                 # Extract Pokémon names
-                self.my_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', my_info)
-                self.opp_info_match = re.search(r'([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)', opp_info)
+                self.my_info_match = re.search(r"([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)", my_info)
+                self.opp_info_match = re.search(r"([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)", opp_info)
 
                 if self.league:
                     if self.my_info_match and self.opp_info_match:
-                        
+
                         my_info_name = self.my_info_match.group(0)
                         opp_info_name = self.opp_info_match.group(0)
 
-                        my_pk, my_pk_name = battle_tracker.load_pk_data(my_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
-                        opp_pk, opp_pk_name = battle_tracker.load_pk_data(opp_info_name,pokemon_names,pokemon_details,moves,self.league_pok)
+                        my_pk, my_pk_name = battle_tracker.load_pk_data(
+                            my_info_name, pokemon_names, pokemon_details, moves, self.league_pok
+                        )
+                        opp_pk, opp_pk_name = battle_tracker.load_pk_data(
+                            opp_info_name, pokemon_names, pokemon_details, moves, self.league_pok
+                        )
 
+                        update_me = self.my_player.add_pokemon(my_pk, my_pk_name)
+                        update_opp = self.opp_player.add_pokemon(opp_pk, opp_pk_name)
 
-                        update_me = self.my_player.add_pokemon(my_pk,my_pk_name)
-                        update_opp = self.opp_player.add_pokemon(opp_pk,opp_pk_name)
-
-                        if not self.match.match_started() and self.my_player.pokemon_count !=0:
-                            print('Battle Started')
+                        if not self.match.match_started() and self.my_player.pokemon_count != 0:
+                            print("Battle Started")
                             self.match.start_match()
 
                         self.my_player.start_update()
@@ -651,8 +712,8 @@ class PokemonBattleAssistant(ctk.CTk):
 
                         self.handle_emblem_update(update_me, update_opp, roi_images)
 
-                        self.update_highlight('me')
-                        self.update_highlight('opp')
+                        self.update_highlight("me")
+                        self.update_highlight("opp")
                         self.match.charge_mv_event = False
                         self.update_timer = update_timer
                     else:
@@ -661,67 +722,70 @@ class PokemonBattleAssistant(ctk.CTk):
                             self.update_timer = 20
                             self.opp_player.pokemon_energy_updater(False)
                             self.my_player.pokemon_energy_updater(False)
-                            
-                            msg_info = self.ocr_detect(thresh_msg_roi)
-                            pk, chr_mv = self.extract_thrown_move(msg_info)               
 
-        
+                            msg_info = self.ocr_detect(thresh_msg_roi)
+                            pk, chr_mv = self.extract_thrown_move(msg_info)
+
             if self.match.match_started():
                 if not self.match.charge_mv_event:
                     self.update_pokeballs_counts(roi_images)
                     self.handle_emblem_update2(roi_images)
                     self.handle_charge_move_circle_detect(roi_images)
-                    if self.my_player.pokeball_count == 0 and self.opp_player.pokeball_count == 0 and not self.match.end_time is not None:
+                    if (
+                        self.my_player.pokeball_count == 0
+                        and self.opp_player.pokeball_count == 0
+                        and not self.match.end_time is not None
+                    ):
                         if record_to_csv:
-                            utils.record_battle(self.my_player,self.opp_player,self.league)
-                        print(f'End of match detected. UI resets in {self.ui_reset_counter} seconds')
+                            utils.record_battle(self.my_player, self.opp_player, self.league)
+                        print(f"End of match detected. UI resets in {self.ui_reset_counter} seconds")
                         self.match.end_match()
 
                 self.charge_move_progress()
-                correct_count = self.match.calculate_correct_alignment(self.my_player,self.opp_player)
+                correct_count = self.match.calculate_correct_alignment(self.my_player, self.opp_player)
                 self.correct_alignment_label.configure(text=f"Correct Alignemnt: {correct_count}")
                 # opponent switch lock timer
-                if self.opp_player.switch_lock and self.opp_player.pokemon_count>1:
+                if self.opp_player.switch_lock and self.opp_player.pokemon_count > 1:
                     self.opp_player.countdown_switch_lock()
                     self.switch_timer_label.configure(text=f"Switch Timer: {self.opp_player.switch_lock_timer}")
 
             # Draw ROIs and display frames
             if display_img:
                 pil_img = utils.draw_display_frames(frame, roi_dict, self.feed_res)
-                self.my_image.configure(light_image=pil_img,dark_image=pil_img)
+                self.my_image.configure(light_image=pil_img, dark_image=pil_img)
 
         if self.match.end_time is not None:
             if loop_start_time - self.match.end_time >= self.ui_reset_counter:
                 self.reset_ui(False)
         time_elapsed = time.time() - loop_start_time
-        self.elapsed_time_label.configure(text=f'{time_elapsed:0.3f}')
-        self.after(self.update_timer, lambda: app.update_ui(client)) 
+        self.elapsed_time_label.configure(text=f"{time_elapsed:0.3f}")
+        self.after(self.update_timer, lambda: app.update_ui(client))
 
-    def update_label(self,side, index, name_of_variable, new_value):
-        label = self.find_label(side,index, name_of_variable)
+    def update_label(self, side, index, name_of_variable, new_value):
+        label = self.find_label(side, index, name_of_variable)
         if isinstance(new_value[0], list):
-            new_value = [' - '.join(str(inner_item) for inner_item in sublist) for sublist in new_value]
+            new_value = [" - ".join(str(inner_item) for inner_item in sublist) for sublist in new_value]
         elif isinstance(new_value, str):
             new_value = [new_value]
         label.configure(values=new_value)
-        label.set(new_value[0])  
+        label.set(new_value[0])
 
     def find_label(self, side, index, name_of_variable):
         frame = self.frames_map[side][index]
         return getattr(frame, name_of_variable)
 
-
-    def get_index(self,combo_box):
+    def get_index(self, combo_box):
         current_value = combo_box.get()
         values = combo_box.cget("values")
         return values.index(current_value)
 
+
 if __name__ == "__main__":
-    if 'ipykernel_launcher.py' in sys.argv[0]: # for jupyter testing
-        sys.argv = [sys.argv[0]] 
+    if "ipykernel_launcher.py" in sys.argv[0]:  # for jupyter testing
+        sys.argv = [sys.argv[0]]
 
     parser = argparse.ArgumentParser(description="Pokemon Battle Assistant")
-    parser.add_argument('--docker', action='store_true', help="Flag to identify if running in Docker container")
+    parser.add_argument("--docker", action="store_true", help="Flag to identify if running in Docker container")
     args = parser.parse_args()
     is_docker = args.docker
 
@@ -731,6 +795,5 @@ if __name__ == "__main__":
     feed_res = (int(client.resolution[0] * img_scale), int(client.resolution[1] * img_scale))
     print(f"Connected to device with resolution: {client.resolution}, feed resolution: {feed_res}")
     app = PokemonBattleAssistant(update_timer, feed_res, cup_names_combo_box, debug_window)
-    app.after(update_timer, lambda: app.update_ui(client)) 
+    app.after(update_timer, lambda: app.update_ui(client))
     app.mainloop()
-
