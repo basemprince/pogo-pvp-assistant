@@ -1,3 +1,5 @@
+"""User interface for selecting and saving Regions of Interest (ROIs)."""
+
 import os
 import tkinter as tk
 
@@ -10,7 +12,13 @@ import utils
 
 
 class DraggableResizableRectangle:
+    """Rectangle widget with draggable corners for resizing."""
+
+    # pylint: disable=too-many-instance-attributes
+
     def __init__(self, canvas, x1, y1, x2, y2, handle_color="red", handle_size=6):
+        """Initialize the rectangle and its resize handles."""
+        # pylint: disable=too-many-arguments,too-many-positional-arguments
         self.canvas = canvas
 
         self.rect_id = canvas.create_rectangle(x1, y1, x2, y2, outline=handle_color, width=2)
@@ -28,6 +36,10 @@ class DraggableResizableRectangle:
             "w": "sb_h_double_arrow",
         }
 
+        self.start_x = 0
+        self.start_y = 0
+        self.start_rect_coords = [x1, y1, x2, y2]
+
         for loc in ("nw", "n", "ne", "e", "se", "s", "sw", "w"):
             self.handles[loc] = canvas.create_rectangle(0, 0, handle_size, handle_size, fill=handle_color)
         self.update_handles()
@@ -36,20 +48,23 @@ class DraggableResizableRectangle:
         canvas.tag_bind(self.rect_id, "<B1-Motion>", self.on_drag)
         canvas.tag_bind(self.rect_id, "<ButtonRelease-1>", self.on_drop)
 
-        for handle in self.handles:
-            canvas.tag_bind(self.handles[handle], "<Button-1>", self.on_start_resize)
-            canvas.tag_bind(self.handles[handle], "<B1-Motion>", self.on_resize)
-            canvas.tag_bind(self.handles[handle], "<ButtonRelease-1>", self.on_drop)
-            canvas.tag_bind(self.handles[handle], "<Enter>", lambda e, h=handle: self.change_cursor(h))
-            canvas.tag_bind(self.handles[handle], "<Leave>", lambda e, h=handle: self.reset_cursor(h))
+        for handle_name, handle_id in self.handles.items():
+            canvas.tag_bind(handle_id, "<Button-1>", self.on_start_resize)
+            canvas.tag_bind(handle_id, "<B1-Motion>", self.on_resize)
+            canvas.tag_bind(handle_id, "<ButtonRelease-1>", self.on_drop)
+            canvas.tag_bind(handle_id, "<Enter>", lambda e, h=handle_name: self.change_cursor(h))
+            canvas.tag_bind(handle_id, "<Leave>", lambda e, h=handle_name: self.reset_cursor(h))
 
     def change_cursor(self, handle):
+        """Change cursor when hovering over a resize handle."""
         self.canvas.config(cursor=self.cursors[handle])
 
-    def reset_cursor(self, handle):
+    def reset_cursor(self, _handle):
+        """Reset cursor when leaving a resize handle."""
         self.canvas.config(cursor="")
 
     def update_handles(self):
+        """Reposition resize handles based on rectangle coordinates."""
         cx1, cy1, cx2, cy2 = self.canvas.coords(self.rect_id)
         dx = self.handle_size / 2
 
@@ -63,10 +78,12 @@ class DraggableResizableRectangle:
         self.canvas.coords(self.handles["w"], cx1 - dx, (cy1 + cy2) / 2 - dx, cx1 + dx, (cy1 + cy2) / 2 + dx)
 
     def on_start(self, event):
+        """Record the initial mouse position when dragging starts."""
         self.start_x = event.x
         self.start_y = event.y
 
     def on_drag(self, event):
+        """Move the rectangle while dragging."""
         dx = event.x - self.start_x
         dy = event.y - self.start_y
         self.canvas.move(self.rect_id, dx, dy)
@@ -74,30 +91,32 @@ class DraggableResizableRectangle:
         self.start_x = event.x
         self.start_y = event.y
 
-    def on_drop(self, event):
-        pass
+    def on_drop(self, _event):
+        """Handle dropping of a drag or resize action."""
 
     def on_start_resize(self, event):
+        """Record starting positions for a resize action."""
         self.start_x = event.x
         self.start_y = event.y
         self.start_rect_coords = self.canvas.coords(self.rect_id)
 
     def on_resize(self, event):
+        """Resize rectangle based on handle movement."""
         dx = event.x - self.start_x
         dy = event.y - self.start_y
 
         rect_coords = list(self.start_rect_coords)
 
         # Update the rectangle coordinates based on which handle is being dragged
-        for handle in self.handles:
-            if self.canvas.find_withtag(tk.CURRENT)[0] == self.handles[handle]:
-                if "w" in handle:
+        for handle_name, handle_id in self.handles.items():
+            if self.canvas.find_withtag(tk.CURRENT)[0] == handle_id:
+                if "w" in handle_name:
                     rect_coords[0] += dx
-                if "n" in handle:
+                if "n" in handle_name:
                     rect_coords[1] += dy
-                if "e" in handle:
+                if "e" in handle_name:
                     rect_coords[2] += dx
-                if "s" in handle:
+                if "s" in handle_name:
                     rect_coords[3] += dy
 
         # Apply the new rectangle coordinates and update the handles
@@ -105,11 +124,17 @@ class DraggableResizableRectangle:
         self.update_handles()
 
     def get_coords(self):
+        """Return current rectangle coordinates."""
         return self.canvas.coords(self.rect_id)
 
 
 class RoiSelector(ctk.CTk):
+    """Application window used to adjust and save ROIs."""
+
+    # pylint: disable=too-many-instance-attributes
+
     def __init__(self, client, img_scale=0.3, update_timer=1):
+        """Create the ROI selector UI."""
         super().__init__()
         self.title("Roi Selector")
         self.img_scale = img_scale
@@ -128,7 +153,10 @@ class RoiSelector(ctk.CTk):
         # Message for users
         message_label = tk.Label(
             mainframe,
-            text="New phone detected. Please align the ROIs to the correct locations. Once done, click Save and close the window.",
+            text=(
+                "New phone detected. Please align the ROIs to the correct "
+                "locations. Once done, click Save and close the window."
+            ),
         )
         message_label.grid(column=0, row=0, pady=10)
 
@@ -139,20 +167,52 @@ class RoiSelector(ctk.CTk):
         self.canvas.grid(column=0, row=3, pady=0)
 
         starting_loc_my = [int(w * 0.07), int(h * 0.13), int(w * 0.5), int(h * 0.15)]
-        self.my_rect = DraggableResizableRectangle(self.canvas, *starting_loc_my)
+        self.my_rect = DraggableResizableRectangle(
+            self.canvas,
+            starting_loc_my[0],
+            starting_loc_my[1],
+            starting_loc_my[2],
+            starting_loc_my[3],
+        )
 
         starting_loc_msgs = [int(w * 0.25), int(h * 0.39), int(w * 0.9), int(h * 0.43)]
-        self.msgs_rect = DraggableResizableRectangle(self.canvas, *starting_loc_msgs, handle_color="orange")
+        self.msgs_rect = DraggableResizableRectangle(
+            self.canvas,
+            starting_loc_msgs[0],
+            starting_loc_msgs[1],
+            starting_loc_msgs[2],
+            starting_loc_msgs[3],
+            handle_color="orange",
+        )
 
         starting_loc_pokeballs = [int(w * 0.07), int(h * 0.15), int(w * 0.22), int(h * 0.18)]
-        self.my_pokeballs_rect = DraggableResizableRectangle(self.canvas, *starting_loc_pokeballs, handle_color="blue")
+        self.my_pokeballs_rect = DraggableResizableRectangle(
+            self.canvas,
+            starting_loc_pokeballs[0],
+            starting_loc_pokeballs[1],
+            starting_loc_pokeballs[2],
+            starting_loc_pokeballs[3],
+            handle_color="blue",
+        )
 
         starting_loc_typing = [int(w * 0.02), int(h * 0.1), int(w * 0.13), int(h * 0.13)]
-        self.my_typing_rect = DraggableResizableRectangle(self.canvas, *starting_loc_typing, handle_color="green")
+        self.my_typing_rect = DraggableResizableRectangle(
+            self.canvas,
+            starting_loc_typing[0],
+            starting_loc_typing[1],
+            starting_loc_typing[2],
+            starting_loc_typing[3],
+            handle_color="green",
+        )
 
         starting_loc_charge_mv = [int(w * 0.35), int(h * 0.85), int(w * 0.7), int(h * 0.99)]
         self.first_charge_mv_rect = DraggableResizableRectangle(
-            self.canvas, *starting_loc_charge_mv, handle_color="black"
+            self.canvas,
+            starting_loc_charge_mv[0],
+            starting_loc_charge_mv[1],
+            starting_loc_charge_mv[2],
+            starting_loc_charge_mv[3],
+            handle_color="black",
         )
 
         self.screen = None
@@ -161,6 +221,9 @@ class RoiSelector(ctk.CTk):
         self.image_on_canvas = self.canvas.create_image(0, 0, image=self.tk_img, anchor=tk.NW)
 
     def save_coords(self):
+        """Save ROI coordinates to a YAML file."""
+
+        # pylint: disable=too-many-locals
         def get_scaled_coords(rect):
             x1, y1, x2, y2 = rect.get_coords()
             width = x2 - x1
@@ -214,7 +277,7 @@ class RoiSelector(ctk.CTk):
 
         yaml_file = "phone_roi.yaml"
         if os.path.exists(yaml_file):
-            with open(yaml_file, "r") as file:
+            with open(yaml_file, "r", encoding="utf-8") as file:
                 data = yaml.safe_load(file)
                 if data is None:
                     data = {}
@@ -227,10 +290,11 @@ class RoiSelector(ctk.CTk):
         else:
             data[phone_model] = phone_data
 
-        with open(yaml_file, "w") as file:
+        with open(yaml_file, "w", encoding="utf-8") as file:
             yaml.dump(data, file)
 
     def update_ui(self, client):
+        """Refresh the canvas with the latest screenshot from the device."""
         original_screen = client.last_frame
         if original_screen is not None:
             resized_image = cv2.resize(original_screen, self.feed_res, interpolation=cv2.INTER_AREA)
@@ -260,10 +324,10 @@ class RoiSelector(ctk.CTk):
 
 
 if __name__ == "__main__":
-    img_scale = 0.5
-    update_timer = 1
-    client = utils.connect_to_device("127.0.0.1:5037")
-    print(f"Connected to device with resolution: {client.resolution}")
-    app = RoiSelector(client, img_scale, update_timer)
-    app.update_ui(client)
+    IMG_SCALE = 0.5
+    UPDATE_TIMER = 1
+    MAIN_CLIENT = utils.connect_to_device("127.0.0.1:5037")
+    print(f"Connected to device with resolution: {MAIN_CLIENT.resolution}")
+    app = RoiSelector(MAIN_CLIENT, IMG_SCALE, UPDATE_TIMER)
+    app.update_ui(MAIN_CLIENT)
     app.mainloop()
