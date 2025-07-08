@@ -21,23 +21,22 @@ import yaml
 from PIL import Image
 
 import scrcpy.core as scrcpy
-from roi_ui import RoiSelector
 
 
 def load_pokemon_names():
     # Load the JSON files
-    with open("json_files/pk.json", "r") as file:
+    with open("json_files/pk.json", "r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def load_pokemon_details():
     # Load the JSON files
-    with open("json_files/pokemon.json", "r") as file:
+    with open("json_files/pokemon.json", "r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def load_moves_info():
-    with open("json_files/moves.json", "r") as file:
+    with open("json_files/moves.json", "r", encoding="utf-8") as file:
         return json.load(file)
 
 
@@ -59,7 +58,7 @@ def load_alignment_df(counts=4):
 
 
 def load_phone_data(device_name):
-    with open("phone_roi.yaml", "r") as file:
+    with open("phone_roi.yaml", "r", encoding="utf-8") as file:
         data = yaml.safe_load(file)
     if data is None:
         return None
@@ -82,6 +81,8 @@ def get_phone_data(client):
     phone_data = load_phone_data(client.device_name)
 
     if phone_data is None:
+        from roi_ui import RoiSelector
+
         app = RoiSelector(client)
         app.update_ui(client)
         app.mainloop()
@@ -342,7 +343,7 @@ def download_current_cups():
     else:
         return None
 
-    with open(local_path) as f:
+    with open(local_path, encoding="utf-8") as f:
         data = json.load(f)
 
     # Extract formats and call update_format_select
@@ -448,7 +449,7 @@ class LeagueDetector:
         if self.league:
             self.league_pok = f"json_files/rankings/{self.league}.json"
             try:
-                with open(self.league_pok, "r") as file:
+                with open(self.league_pok, "r", encoding="utf-8") as file:
                     self.league_pok = json.load(file)
                     print(f"Loaded {self.league} JSON data")
             except FileNotFoundError:
@@ -574,10 +575,10 @@ def detect_emblems(image, color_range=30, save_images=False):
 
     # Detect each type of emblem
     type_counts: dict[str, int] = {}
-    for i in circles[0, :]:
+    for circle in circles[0, :]:
         # Create an empty mask
         mask = np.zeros_like(image)
-        mask = cv2.circle(mask, (i[0], i[1]), i[2], (255, 255, 255), -1)
+        mask = cv2.circle(mask, (circle[0], circle[1]), circle[2], (255, 255, 255), -1)
         masked_image = cv2.bitwise_and(image, mask)
         # if save_images:
         #     timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
@@ -741,12 +742,12 @@ def record_battle(me, opp, league):
         new_record[f"opp_pokemon{i+1}"] = opp_pokemon
 
     try:
-        with open(filename, "x", newline="") as csvfile:
+        with open(filename, "x", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerow(new_record)
     except FileExistsError:
-        with open(filename, "a", newline="") as csvfile:
+        with open(filename, "a", newline="", encoding="utf-8") as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writerow(new_record)
 
