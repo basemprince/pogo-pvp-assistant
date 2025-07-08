@@ -38,7 +38,7 @@
 # Installation
 NOTE: Only works for Android devices. Connect your phone to your computer and allow for USB Debugging in your Developer Settings:
 
-1. Clone the repo: 
+1. Clone the repo:
 ```
 git clone git@github.com:basemprince/pogo-bot.git
 ```
@@ -96,4 +96,3 @@ A bit more convoluted, please follow these steps:
    ```powershell
    docker-compose up --build
    docker run -it -v /run/desktop/mnt/host/wslg/.X11-unix:/tmp/.X11-unix -v /run/desktop/mnt/host/wslg:/mnt/wslg -e DISPLAY=:0 -e WAYLAND_DISPLAY=wayland-0 -e XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir -e PULSE_SERVER=/mnt/wslg/PulseServer pogo-pvp-assistant-img
-

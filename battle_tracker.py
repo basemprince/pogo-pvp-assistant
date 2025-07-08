@@ -458,4 +458,5 @@ if __name__ == "__main__":
 
     pk, pk_name = load_pk_data("tapu bulu", pokemon_names, pokemon_details, moves, league_pok)
     my_player = Player("me")
-    my_player.add_pokemon(pk)    print(my_player)
+    my_player.add_pokemon(pk)
+    print(my_player)
