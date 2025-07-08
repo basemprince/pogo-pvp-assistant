@@ -26,18 +26,18 @@ import os
 # In[2]:
 
 
-debug_window = False             # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
+debug_window = True             # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
 record_to_csv = True            # records the seen pokemon during the match in to a csv file (battle_records.csv)
-print_out = False               # extra printouts for debugging
+print_out = True               # extra printouts for debugging
 display_img = True              # shows the screen feed on the UI
-img_scale = 0.1                 # the scale of the screen feed
+img_scale = 0.3                 # the scale of the screen feed
 update_timer = 50               # UI refresh rate in ms
 alignment_count_display = 5     # how many move counts to display for the move throw alignment
 roi_color = (0, 0, 0)           # color of boxes drawn on the screen feed
 roi_thick = 12                  # thickness of boxes drawn on the screen feed
 update_json_files = False       # to update the json files of the leagues and cups from pvpoke
 update_pokemon = False          # to update pokemon and moves json files from pvpoke
-ui_printout = False              # puts a terminal "like" box into the UI for printouts
+ui_printout = True              # puts a terminal "like" box into the UI for printouts
 
 
 # In[3]:
@@ -160,7 +160,7 @@ class PokemonBattleAssistant(ctk.CTk):
             # Creating an empty dictionary to store the labels for each ROI
             self.debug_labels = {}
 
-    def update_debug_window(self, roi_images, scale=0.6):
+    def update_debug_window(self, roi_images, scale=1):
         if self.debug_window is not None:
             # Check if the debug window still exists
             if self.debug_window.winfo_exists():

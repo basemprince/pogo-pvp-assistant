@@ -6,29 +6,27 @@ import time
 import av
 import pygame
 import os
+import threading
 from typing import Optional, Tuple
 import numpy as np
 
-# Mapping of scrcpy codec ids to codec names for PyAV
 CODECS = {
-    0x68323634: 'h264',  # "h264"
-    0x68323635: 'hevc',  # "h265"
-    0x00617631: 'av1',   # "av1"
+    0x68323634: 'h264',
+    0x68323635: 'hevc',
+    0x00617631: 'av1',
 }
 
-HEADER_SIZE = 12  # frame header in the scrcpy protocol
+HEADER_SIZE = 12
 FLAG_CONFIG = 1 << 63
 FLAG_KEY_FRAME = 1 << 62
 PTS_MASK = FLAG_KEY_FRAME - 1
 
 SERVER_VERSION = "3.3.1"
 DEVICE_SERVER_PATH = "/data/local/tmp/scrcpy-server.jar"
-
 LOCK_SCREEN_ORIENTATION_UNLOCKED = 0
 
 
 def read_exact(sock: socket.socket, length: int) -> bytes:
-    """Read exactly `length` bytes from the socket."""
     buf = bytearray()
     while len(buf) < length:
         chunk = sock.recv(length - len(buf))
@@ -47,7 +45,7 @@ class Client:
         host: str = "127.0.0.1",
         port: int = 27183,
         ip: str = "127.0.0.1:5037",
-        max_width: int = 720,
+        max_width: int = 1440,
         bitrate: int = 8_000_000,
         max_fps: int = 0,
         flip: bool = False,
@@ -72,16 +70,14 @@ class Client:
             self.adb_cmd += ["-H", adb_host, "-P", adb_port]
 
         self.proc: subprocess.Popen | None = None
-
-        # User accessible
         self.last_frame: Optional[np.ndarray] = None
         self.resolution: Optional[Tuple[int, int]] = None
         self.device_name: Optional[str] = None
+        self.thread: Optional[threading.Thread] = None
+
         self.run()
 
-    # Start the scrcpy server on the device
     def _start_server(self) -> None:
-
         server_file_path = os.path.join(
             os.path.abspath(os.path.dirname(__file__)), self.server
         )
@@ -124,9 +120,13 @@ class Client:
     def run(self) -> None:
         self._start_server()
         time.sleep(1)
+        self.thread = threading.Thread(target=self._video_loop, daemon=True)
+        self.thread.start()
+
+    def _video_loop(self) -> None:
         try:
             with socket.create_connection((self.host, self.port)) as sock:
-                _dummy = read_exact(sock, 1)
+                _ = read_exact(sock, 1)
                 self.device_name = read_exact(sock, 64).split(b"\0", 1)[0].decode()
 
                 raw_codec = struct.unpack('>I', read_exact(sock, 4))[0]
@@ -136,13 +136,10 @@ class Client:
                 if not codec_name:
                     raise RuntimeError(f"Unsupported codec id: {raw_codec:#x}")
 
-                print(
-                    f"Connected to {self.device_name!r}: codec={codec_name} size={width}x{height}"
-                )
+                print(f"Connected to '{self.device_name}': codec={codec_name} size={width}x{height}")
 
                 decoder = av.CodecContext.create(codec_name, "r")
                 config_data = b""
-                screen = None
 
                 while True:
                     header = read_exact(sock, HEADER_SIZE)
@@ -168,18 +165,9 @@ class Client:
                     for frame in decoder.decode(packet):
                         img = frame.to_ndarray(format="rgb24")
                         self.last_frame = img
-                        if screen is None:
-                            screen = pygame.display.set_mode((frame.width, frame.height))
-                        surf = pygame.image.frombuffer(img.tobytes(), (frame.width, frame.height), "RGB")
-                        screen.blit(surf, (0, 0))
-                        pygame.display.flip()
-                        for event in pygame.event.get():
-                            if event.type == pygame.QUIT:
-                                return
 
         finally:
             self._stop_server()
-            pygame.quit()
 
 
 if __name__ == '__main__':
@@ -192,3 +180,31 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     client = Client(adb=args.adb, server=args.server, host=args.host, port=args.port, ip=args.adb_host)
+
+    # GUI must be handled in main thread
+    pygame.init()
+    screen = None
+    clock = pygame.time.Clock()
+
+    try:
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    raise KeyboardInterrupt
+
+            if client.last_frame is not None:
+                frame = client.last_frame
+                h, w, _ = frame.shape
+
+                if screen is None:
+                    screen = pygame.display.set_mode((w, h))
+
+                surf = pygame.image.frombuffer(frame.tobytes(), (w, h), "RGB")
+                screen.blit(surf, (0, 0))
+                pygame.display.flip()
+
+            clock.tick(60)
+
+    except KeyboardInterrupt:
+        print("Exiting...")
+        pygame.quit()
