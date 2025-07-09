@@ -1,0 +1,3 @@
+[submodule "scrcpy"]
+	path = scrcpy
+	url = git@github.com:basemprince/scrcpy_python_client.git

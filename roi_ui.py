@@ -140,10 +140,10 @@ class RoiSelector(ctk.CTk):
         self.img_scale = img_scale
         self.client = client
         self.feed_res = (
-            int(self.client.resolution[0] * self.img_scale),
-            int(self.client.resolution[1] * self.img_scale),
+            int(self.client.state.resolution[0] * self.img_scale),
+            int(self.client.state.resolution[1] * self.img_scale),
         )
-        self.original_res = self.client.resolution
+        self.original_res = self.client.state.resolution
         self.update_timer = update_timer
         w, h = self.feed_res
 
@@ -284,7 +284,7 @@ class RoiSelector(ctk.CTk):
         else:
             data = {}
 
-        phone_model = self.client.device_name
+        phone_model = self.client.state.device_name
         if phone_model in data:
             data[phone_model].update(phone_data)
         else:
@@ -295,7 +295,7 @@ class RoiSelector(ctk.CTk):
 
     def update_ui(self, client):
         """Refresh the canvas with the latest screenshot from the device."""
-        original_screen = client.last_frame
+        original_screen = client.state.last_frame
         if original_screen is not None:
             resized_image = cv2.resize(original_screen, self.feed_res, interpolation=cv2.INTER_AREA)
             pil_img = Image.fromarray(resized_image)
@@ -327,7 +327,7 @@ if __name__ == "__main__":
     IMG_SCALE = 0.5
     UPDATE_TIMER = 1
     MAIN_CLIENT = utils.connect_to_device("127.0.0.1:5037")
-    print(f"Connected to device with resolution: {MAIN_CLIENT.resolution}")
+    print(f"Connected to device with resolution: {MAIN_CLIENT.state.resolution}")
     app = RoiSelector(MAIN_CLIENT, IMG_SCALE, UPDATE_TIMER)
     app.update_ui(MAIN_CLIENT)
     app.mainloop()

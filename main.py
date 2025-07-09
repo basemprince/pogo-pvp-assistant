@@ -143,7 +143,7 @@ class PokemonBattleAssistant(ctk.CTk):
             output_image_frame.grid_columnconfigure(0, weight=2)  # Set the weight to a larger value
             self.command_line_output.grid(column=0, row=0, sticky="we", padx=0, pady=0)
 
-        self.vid_res = (int(client.resolution[0] / 2), int(client.resolution[1] / 2))
+        self.vid_res = (int(client.state.resolution[0] / 2), int(client.state.resolution[1] / 2))
         self.threshold = 500
         self.ui_reset_counter = 10
         self.get_ready_keywords = ["get", "ready"]
@@ -503,7 +503,7 @@ class PokemonBattleAssistant(ctk.CTk):
 
     def vid_stream(self):
         while self.record_vid:
-            frame = client.last_frame
+            frame = client.state.last_frame
             resized_frame = cv2.resize(frame, self.vid_res)
             if self.out is not None:
                 self.out.write(resized_frame)
@@ -650,7 +650,7 @@ class PokemonBattleAssistant(ctk.CTk):
 
     def update_ui(self, client):
         loop_start_time = time.time()
-        frame = client.last_frame
+        frame = client.state.last_frame
         # frame = cv2.imread('templates/screenshot.png')
         if frame is not None:
 
@@ -813,8 +813,8 @@ if __name__ == "__main__":
     # connect to phone
     client = utils.connect_to_device("127.0.0.1:5037", is_docker)
     roi_dict = utils.get_phone_data(client)
-    feed_res = (int(client.resolution[0] * img_scale), int(client.resolution[1] * img_scale))
-    print(f"Connected to device with resolution: {client.resolution}, feed resolution: {feed_res}")
+    feed_res = (int(client.state.resolution[0] * img_scale), int(client.state.resolution[1] * img_scale))
+    print(f"Connected to device with resolution: {client.state.resolution}, feed resolution: {feed_res}")
     app = PokemonBattleAssistant(update_timer, feed_res, cup_names_combo_box, debug_window)
     app.after(update_timer, lambda: app.update_ui(client))
     app.mainloop()

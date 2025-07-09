@@ -20,7 +20,7 @@ import requests
 import yaml
 from PIL import Image
 
-import scrcpy.core as scrcpy
+import scrcpy.scrcpy_python_client as scrcpy
 
 
 def load_pokemon_names():
@@ -72,13 +72,13 @@ def get_phone_data(client):
 
     timeout = 5
     start = time.time()
-    while client.resolution is None and time.time() - start < timeout:
+    while client.state.resolution is None and time.time() - start < timeout:
         time.sleep(0.05)
 
-    if client.resolution is None:
+    if client.state.resolution is None:
         raise RuntimeError("Timed out waiting for video resolution from scrcpy.")
 
-    phone_data = load_phone_data(client.device_name)
+    phone_data = load_phone_data(client.state.device_name)
 
     if phone_data is None:
         from roi_ui import RoiSelector
@@ -86,7 +86,7 @@ def get_phone_data(client):
         app = RoiSelector(client)
         app.update_ui(client)
         app.mainloop()
-        phone_data = load_phone_data(client.device_name)
+        phone_data = load_phone_data(client.state.device_name)
 
     if phone_data:
         roi_dict = {
@@ -354,7 +354,8 @@ def download_current_cups():
 
 def connect_to_device(ip, docker=False):
     try:
-        client = scrcpy.Client(ip=ip, docker=docker)
+        config_obj = scrcpy.ClientConfig(ip=ip, docker=docker)
+        client = scrcpy.Client(config_obj)
         return client
     except RuntimeError as e:
         if "No adb exe could be found" in str(e):
