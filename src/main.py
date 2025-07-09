@@ -2,8 +2,6 @@
 # coding: utf-8
 # pylint: skip-file
 
-# In[1]:
-
 
 import argparse
 import json
@@ -20,19 +18,15 @@ import numpy as np
 from PIL import Image, ImageTk
 from tesserocr import PSM, PyTessBaseAPI
 
-from . import battle_tracker
-from . import utils
+from . import battle_tracker, utils
 
 # # Parameters
-
-# In[2]:
-
 
 debug_window = True  # deployes a secondary UI window to display the ROIs after some pre-processing <- for debugging
 record_to_csv = True  # records the seen pokemon during the match in to a csv file (battle_records.csv)
 print_out = True  # extra printouts for debugging
 display_img = True  # shows the screen feed on the UI
-img_scale = 0.3  # the scale of the screen feed
+img_scale = 0.15  # the scale of the screen feed
 update_timer = 50  # UI refresh rate in ms
 alignment_count_display = 5  # how many move counts to display for the move throw alignment
 roi_color = (0, 0, 0)  # color of boxes drawn on the screen feed
@@ -40,10 +34,6 @@ roi_thick = 12  # thickness of boxes drawn on the screen feed
 update_json_files = False  # to update the json files of the leagues and cups from pvpoke
 update_pokemon = False  # to update pokemon and moves json files from pvpoke
 ui_printout = True  # puts a terminal "like" box into the UI for printouts
-
-
-# In[3]:
-
 
 # Load the JSON files
 pokemon_names = utils.load_pokemon_names()
@@ -59,9 +49,6 @@ if update_pokemon:
 if not os.path.exists("json_files/saved_cup_names.pkl"):
     update_json_files = True
 cup_names_combo_box = utils.update_leagues_and_cups(update_json_files)
-
-
-# In[4]:
 
 
 class PokemonBattleAssistant(ctk.CTk):
