@@ -8,8 +8,6 @@ import cv2
 import yaml
 from PIL import Image, ImageTk
 
-import utils
-
 
 class DraggableResizableRectangle:
     """Rectangle widget with draggable corners for resizing."""
@@ -324,6 +322,8 @@ class RoiSelector(ctk.CTk):
 
 
 if __name__ == "__main__":
+    import utils
+
     IMG_SCALE = 0.5
     UPDATE_TIMER = 1
     MAIN_CLIENT = utils.connect_to_device("127.0.0.1:5037")
