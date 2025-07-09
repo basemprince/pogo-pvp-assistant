@@ -1,3 +1,5 @@
+"""Utility functions and helpers for the Poké PvP assistant."""
+
 import csv
 import io
 import json
@@ -20,27 +22,32 @@ import requests
 import yaml
 from PIL import Image
 
-import scrcpy.scrcpy_python_client as scrcpy
+# isort: off
+import scrcpy.scrcpy_python_client as scrcpy  # pylint: disable=no-name-in-module,wrong-import-order
+
+# isort: on
 
 
 def load_pokemon_names():
-    # Load the JSON files
+    """Return a dictionary of Pokémon names indexed by ID."""
     with open("json_files/pk.json", "r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def load_pokemon_details():
-    # Load the JSON files
+    """Return detailed Pokémon information."""
     with open("json_files/pokemon.json", "r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def load_moves_info():
+    """Return move data from the JSON file."""
     with open("json_files/moves.json", "r", encoding="utf-8") as file:
         return json.load(file)
 
 
 def load_alignment_df(counts=4):
+    """Return a dataframe describing move alignment counts."""
     alignment_info = """,1,2,3,4,5
     1,,"1,2","2,3","3,4","4,5"
     2,,,"1,3","1,2","2,5"
@@ -58,17 +65,18 @@ def load_alignment_df(counts=4):
 
 
 def load_phone_data(device_name):
+    """Load saved region-of-interest data for ``device_name``."""
     with open("phone_roi.yaml", "r", encoding="utf-8") as file:
         data = yaml.safe_load(file)
     if data is None:
         return None
     if device_name in data:
         return data[device_name]
-    else:
-        return None
+    return None
 
 
 def get_phone_data(client):
+    """Ensure phone ROI data exists for the given scrcpy client."""
 
     timeout = 5
     start = time.time()
@@ -81,7 +89,7 @@ def get_phone_data(client):
     phone_data = load_phone_data(client.state.device_name)
 
     if phone_data is None:
-        from roi_ui import RoiSelector
+        from roi_ui import RoiSelector  # pylint: disable=import-outside-toplevel
 
         app = RoiSelector(client)
         app.update_ui(client)
@@ -111,6 +119,7 @@ def get_phone_data(client):
 
 
 def find_correct_alignment(df, row, col, counts):
+    """Expand alignment ranges found in the CSV snippet."""
     if pd.isna(df.at[row, col]):
         return None
     move_counts = [int(count) for count in df.at[row, col].split(",")]
@@ -121,6 +130,7 @@ def find_correct_alignment(df, row, col, counts):
 
 
 def update_data(button=True):
+    """Update all JSON data files if the user confirms."""
     try:
         with open("json_files/last_update_time.pkl", "rb") as file:
             last_update_time = pickle.load(file)
@@ -158,7 +168,8 @@ def update_data(button=True):
         print("Update cancelled.")
 
 
-def update_json_files():
+def update_json_files():  # pylint: disable=too-many-locals
+    """Download ranking JSON files from PvPoke and store them locally."""
     try:
         repo_owner = "pvpoke"
         repo_name = "pvpoke"
@@ -205,6 +216,7 @@ def update_json_files():
 
 
 def update_leagues_and_cups(update=False):
+    """Retrieve available cups and rankings from PvPoke."""
     cup_names_combo_box = ["Great League", "Ultra League", "Master League"]
     save_cup_names = []
     try:
@@ -214,11 +226,11 @@ def update_leagues_and_cups(update=False):
             for cup in avail_cups:
                 cup_names_combo_box.append(cup["title"])
                 save_cup_names.append(cup["title"])
-            for format in avail_cups:
-                title = format["title"]
-                cup = format["cup"]
+            for fmt in avail_cups:
+                title = fmt["title"]
+                cup = fmt["cup"]
                 category = "overall"
-                league = format["cp"]
+                league = fmt["cp"]
                 download_ranking_data(cup, category, league, title)
             with open("json_files/saved_cup_names.pkl", "wb") as f:
                 pickle.dump(save_cup_names, f)
@@ -232,7 +244,8 @@ def update_leagues_and_cups(update=False):
         return cup_names_combo_box
 
 
-def download_ranking_data(cup, category, league, title):
+def download_ranking_data(cup, category, league, title):  # pylint: disable=too-many-locals
+    """Download and save ranking data for the given cup."""
     key = f"{cup}{category}{league}"
     object_rankings = {}
     repo_owner = "pvpoke"
@@ -258,6 +271,7 @@ def download_ranking_data(cup, category, league, title):
 
 
 def update_format_select(formats):
+    """Filter and return formats that should be displayed to the user."""
     visible_formats = [
         format
         for format in formats
@@ -270,6 +284,7 @@ def update_format_select(formats):
 
 
 def update_pk_info():
+    """Download the latest Pokémon data JSON file."""
     repo_owner = "pvpoke"
     repo_name = "pvpoke"
     file_path = "src/data/gamemaster/pokemon.json"
@@ -295,6 +310,7 @@ def update_pk_info():
 
 
 def update_move_info():
+    """Download the latest move data JSON file."""
     repo_owner = "pvpoke"
     repo_name = "pvpoke"
     file_path = "src/data/gamemaster/moves.json"
@@ -320,6 +336,7 @@ def update_move_info():
 
 
 def download_current_cups():
+    """Download cup information from PvPoke and return visible formats."""
     repo_owner = "pvpoke"
     repo_name = "pvpoke"
     file_path = "src/data/gamemaster.json"
@@ -353,6 +370,7 @@ def download_current_cups():
 
 
 def connect_to_device(ip, docker=False):
+    """Return a scrcpy client connected to the device."""
     try:
         config_obj = scrcpy.ClientConfig(ip=ip, docker=docker)
         client = scrcpy.Client(config_obj)
@@ -364,6 +382,7 @@ def connect_to_device(ip, docker=False):
 
 
 def get_roi_images(frame, roi_dict):
+    """Crop ``frame`` according to regions of interest."""
     roi_images = {}
     for roi_name, roi in roi_dict.items():
         roi_images[roi_name] = frame[roi[1] : roi[1] + roi[3], roi[0] : roi[0] + roi[2]]
@@ -371,6 +390,7 @@ def get_roi_images(frame, roi_dict):
 
 
 def draw_display_frames(frame, roi_dict, feed_res, roi_color=(0, 0, 0), roi_thick=12):
+    """Draw ROIs on ``frame`` and return a resized PIL image."""
     for i, roi in enumerate(roi_dict.values()):
         if i == 0:
             frame_with_rois = frame.copy()
@@ -386,13 +406,15 @@ def draw_display_frames(frame, roi_dict, feed_res, roi_color=(0, 0, 0), roi_thic
 
 # Function to find the closest Pokémon name
 def closest_name(name, names_list):
-    closest_name = get_close_matches(name, names_list, n=1, cutoff=0.6)
-    if closest_name:
-        return closest_name[0]
+    """Return the closest match to ``name`` from ``names_list``."""
+    matches = get_close_matches(name, names_list, n=1, cutoff=0.6)
+    if matches:
+        return matches[0]
     return None
 
 
 def process_image(img):
+    """Return a thresholded version of ``img`` alongside the original."""
     prev_img = img.copy()
     gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
@@ -404,6 +426,7 @@ def process_image(img):
 
 
 def mse(image1, image2):
+    """Compute the mean squared error between two images."""
     if image1.size == 0 or image2.size == 0:
         return float("inf")
     error = np.sum((image1.astype("float") - image2.astype("float")) ** 2)
@@ -412,31 +435,35 @@ def mse(image1, image2):
 
 
 def get_next_filename(directory):
+    """Return the next available MP4 filename inside ``directory``."""
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    files = os.listdir(directory)
-    files = [f for f in files if f.endswith(".mp4")]
+    files = [f for f in os.listdir(directory) if f.endswith(".mp4")]
 
     if not files:
         return os.path.join(directory, "1.mp4")
-    else:
-        nums = sorted([int(f.split(".")[0]) for f in files])
-        next_num = nums[-1] + 1
-        return os.path.join(directory, f"{next_num}.mp4")
+
+    nums = sorted(int(f.split(".")[0]) for f in files)
+    next_num = nums[-1] + 1
+    return os.path.join(directory, f"{next_num}.mp4")
 
 
 class LeagueDetector:
+    """Determine the battle league based on Pokémon CP values."""
+
     def __init__(self):
         self.league = None
         self.league_pok = None
 
     @staticmethod
     def extract_cp(info):
+        """Extract the CP value from an info string."""
         cp = re.search(r"\bCP\s+(\d+)\b", info)
         return int(cp.group(1)) if cp else None
 
     def set_league_based_on_cp(self, cp):
+        """Update ``self.league`` based on the highest CP seen."""
         if cp <= 500:
             self.league = "Little Cup"
         elif cp <= 1500:
@@ -447,6 +474,7 @@ class LeagueDetector:
             self.league = "Master League"
 
     def load_league_json(self):
+        """Load the ranking JSON for the determined league."""
         if self.league:
             self.league_pok = f"json_files/rankings/{self.league}.json"
             try:
@@ -457,22 +485,20 @@ class LeagueDetector:
                 print(f"Failed to load {self.league} JSON data")
 
     def detect_league(self, my_info, opp_info):
+        """Infer the league and load its rankings based on CP values."""
         my_cp = self.extract_cp(my_info)
         opp_cp = self.extract_cp(opp_info)
-        # print(f"My Pokémon CP: {my_cp}")
-        # print(f"Opponent Pokémon CP: {opp_cp}")
 
         if my_cp and opp_cp:
             higher_cp = max(my_cp, opp_cp)
             self.set_league_based_on_cp(higher_cp)
             self.load_league_json()
-        # else:
-        #     print("Could not determine league")
 
         return self.league, self.league_pok
 
 
 def count_pokeballs(image):
+    """Return the number of Pokéball icons detected in ``image``."""
 
     image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -491,12 +517,14 @@ def count_pokeballs(image):
 
 
 def hex_to_bgr(hex_color):
+    """Convert a hex color string to a BGR tuple."""
     hex_color = hex_color.lstrip("#")
     rgb = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
     return rgb[::-1]
 
 
-def detect_emblems(image, color_range=30, save_images=False):
+def detect_emblems(image, color_range=30, save_images=False):  # pylint: disable=too-many-locals
+    """Detect Pokémon type emblems in an image."""
     hex_colors = {
         "normal": "#a0a29f",
         "fire": "#fba64c",
@@ -610,12 +638,15 @@ def detect_emblems(image, color_range=30, save_images=False):
 
 
 class ChargeCircleDetector:
+    """Detect and track the charging circle during battles."""
+
     def __init__(self):
         self.center_history = []
         self.stabilized_center = None
         self.charge_moves_stored = 0
 
     def mask_white_pixels(self, image, min_white, max_white):
+        """Remove white pixels from the image using the given HSV ranges."""
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
         lower_white = np.array(min_white, dtype=np.uint8)
         upper_white = np.array(max_white, dtype=np.uint8)
@@ -624,18 +655,21 @@ class ChargeCircleDetector:
         return cv2.bitwise_and(image, image, mask=inverted_mask)
 
     def calculate_filled_proportion(self, circle, boundary_row):
+        """Return how much of the circle is filled based on the boundary row."""
         boundary_from_bottom = (circle[1] + circle[2]) - boundary_row
         return boundary_from_bottom / (2 * circle[2])
 
     def detect_energy_boundary_in_full_image(self, image, circle):
+        """Detect the charge boundary row within the full image."""
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
         abs_sobel_y = np.abs(sobel_y)
         mask = self.create_annular_mask(image.shape, circle, inner_radius_proportion=0.6)
         abs_sobel_y_masked = cv2.bitwise_and(abs_sobel_y, abs_sobel_y, mask=mask)
-        return np.argmax(np.sum(abs_sobel_y_masked, axis=1))
+        return int(np.argmax(np.sum(abs_sobel_y_masked, axis=1)))
 
     def create_annular_mask(self, image_shape, circle, inner_radius_proportion=0.3):
+        """Create a ring mask around the circle to focus detection."""
         mask = np.zeros(image_shape[:2], dtype=np.uint8)
         center = (int(circle[0]), int(circle[1]))
         outer_radius = int(circle[2])
@@ -645,75 +679,78 @@ class ChargeCircleDetector:
         return mask
 
     def adjust_detected_circle_radius(self, circle, adjustment_factor=0.9):
+        """Shrink or enlarge the detected circle radius."""
         x, y, r = circle
         return (x, y, r * adjustment_factor)
 
     def detect_charge_circles(self, image):
-        min_white = [0, 0, 200]
-        max_white = [180, 40, 255]
-        image_without_white_circle = self.mask_white_pixels(image, min_white, max_white)
+        """Detect the charge circle and return the filled energy proportion."""
+        white_removed = self.mask_white_pixels(image, [0, 0, 200], [180, 40, 255])
 
-        gray = cv2.cvtColor(image_without_white_circle, cv2.COLOR_BGR2GRAY)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        gray = clahe.apply(gray)
+        gray = cv2.cvtColor(white_removed, cv2.COLOR_BGR2GRAY)
+        gray = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
 
-        # If the center is stabilized, create a region of interest around that center
-        roi = gray
         roi_size = 145
         if self.stabilized_center:
-            x, y = int(self.stabilized_center[0]), int(self.stabilized_center[1])
+            x, y = map(int, self.stabilized_center)
             roi = gray[
                 max(y - roi_size, 0) : min(y + roi_size, gray.shape[0]),
                 max(x - roi_size, 0) : min(x + roi_size, gray.shape[1]),
             ]
+        else:
+            roi = gray
 
         circles = cv2.HoughCircles(
-            roi, cv2.HOUGH_GRADIENT, dp=1, minDist=math.inf, param1=30, param2=15, minRadius=90, maxRadius=roi_size
+            roi,
+            cv2.HOUGH_GRADIENT,
+            dp=1,
+            minDist=math.inf,
+            param1=30,
+            param2=15,
+            minRadius=90,
+            maxRadius=roi_size,
         )
 
-        if circles is not None:
-            circle = circles[0, 0]
-            if self.stabilized_center:
-                circle[0] += max(self.stabilized_center[0] - roi_size, 0)
-                circle[1] += max(self.stabilized_center[1] - roi_size, 0)
-
-            self.center_history.append((circle[0], circle[1]))
-            if len(self.center_history) > 4:
-                self.center_history.pop(0)
-                if all(
-                    [
-                        abs(self.center_history[i][0] - self.center_history[i + 1][0]) < 10
-                        and abs(self.center_history[i][1] - self.center_history[i + 1][1]) < 10
-                        for i in range(3)
-                    ]
-                ):
-                    self.stabilized_center = (circle[0], circle[1])
-
-            adjusted_circle = self.adjust_detected_circle_radius(circle, 1)
-            detected_boundary_row = self.detect_energy_boundary_in_full_image(
-                image_without_white_circle.copy(), adjusted_circle
-            )
-            filled_proportion = self.calculate_filled_proportion(adjusted_circle, detected_boundary_row)
-            cv2.circle(
-                image_without_white_circle,
-                (int(adjusted_circle[0]), int(adjusted_circle[1])),
-                int(adjusted_circle[2]),
-                (0, 255, 0),
-                2,
-            )
-            cv2.line(
-                image_without_white_circle,
-                (0, detected_boundary_row),
-                (image.shape[1], detected_boundary_row),
-                (0, 0, 255),
-                2,
-            )
-            return filled_proportion, image_without_white_circle
-        else:
+        if circles is None:
             return None, None
+
+        detected_circle = circles[0, 0]
+        if self.stabilized_center:
+            detected_circle[0] += max(self.stabilized_center[0] - roi_size, 0)
+            detected_circle[1] += max(self.stabilized_center[1] - roi_size, 0)
+
+        self.center_history.append((detected_circle[0], detected_circle[1]))
+        if len(self.center_history) > 4:
+            self.center_history.pop(0)
+            if all(
+                abs(self.center_history[i][0] - self.center_history[i + 1][0]) < 10
+                and abs(self.center_history[i][1] - self.center_history[i + 1][1]) < 10
+                for i in range(3)
+            ):
+                self.stabilized_center = (detected_circle[0], detected_circle[1])
+
+        adjusted_circle = self.adjust_detected_circle_radius(detected_circle, 1)
+        boundary_row = self.detect_energy_boundary_in_full_image(white_removed.copy(), adjusted_circle)
+        filled_proportion = self.calculate_filled_proportion(adjusted_circle, boundary_row)
+        cv2.circle(
+            white_removed,
+            (int(adjusted_circle[0]), int(adjusted_circle[1])),
+            int(adjusted_circle[2]),
+            (0, 255, 0),
+            2,
+        )
+        cv2.line(
+            white_removed,
+            (0, boundary_row),
+            (image.shape[1], boundary_row),
+            (0, 0, 255),
+            2,
+        )
+        return filled_proportion, white_removed
 
 
 def record_battle(me, opp, league):
+    """Store a summary of the battle into ``battle_records.csv``."""
     filename = "battle_records.csv"
     fieldnames = [
         "timestamp",
@@ -753,18 +790,22 @@ def record_battle(me, opp, league):
             writer.writerow(new_record)
 
 
-class TextRedirector(object):
+class TextRedirector:
+    """Redirect ``stdout`` to a Tkinter text widget."""
+
     def __init__(self, widget):
+        """Initialize with the widget and store the original ``stdout``."""
         self.widget = widget
         self.original_stdout = sys.stdout
 
     def write(self, string):
+        """Write text to the widget and keep showing the end of it."""
         try:
             if self.widget.winfo_exists():
                 self.widget.insert(tk.END, string)
                 self.widget.see(tk.END)
         except Exception:
-            self.original_stdout.write(string)  # Redirect output to original stdout
+            self.original_stdout.write(string)  # Fallback to original stdout
 
     def flush(self):
-        pass
+        """Required for file-like interface."""
