@@ -20,8 +20,8 @@ import numpy as np
 from PIL import Image, ImageTk
 from tesserocr import PSM, PyTessBaseAPI
 
-import battle_tracker
-import utils
+from . import battle_tracker
+from . import utils
 
 # # Parameters
 

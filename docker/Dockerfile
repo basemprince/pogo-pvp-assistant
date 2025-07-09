@@ -15,7 +15,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy environment definition first to leverage Docker layer caching
-COPY environment.yml /tmp/environment.yml
+COPY config/environment.yml /tmp/environment.yml
 
 # Create the conda environment
 RUN conda env create -f /tmp/environment.yml
@@ -35,4 +35,4 @@ ENV ANDROID_ADB_SERVER_ADDRESS=host.docker.internal
 ENV PYTHONUNBUFFERED=1
 
 # Run the application using the conda environment
-CMD ["conda", "run", "-n", "pogo-pvp-assistant", "python", "main.py"]
+CMD ["conda", "run", "-n", "pogo-pvp-assistant", "python", "-m", "src.main"]

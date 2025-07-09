@@ -9,7 +9,7 @@ if %ERRORLEVEL%==0 (
 )
 
 echo Creating conda environment...
-conda env create -f environment.yml
+conda env create -f config/environment.yml
 
 echo Activating environment...
 call conda activate %ENV_NAME%

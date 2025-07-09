@@ -2,11 +2,15 @@
 
 import os
 import tkinter as tk
+from pathlib import Path
 
 import customtkinter as ctk
 import cv2
 import yaml
 from PIL import Image, ImageTk
+
+BASE_DIR = Path(__file__).resolve().parents[1]
+CONFIG_DIR = BASE_DIR / "config"
 
 
 class DraggableResizableRectangle:
@@ -273,8 +277,8 @@ class RoiSelector(ctk.CTk):
             "second_charge_mv_roi": second_mv_roi_coords,
         }
 
-        yaml_file = "phone_roi.yaml"
-        if os.path.exists(yaml_file):
+        yaml_file = CONFIG_DIR / "phone_roi.yaml"
+        if yaml_file.exists():
             with open(yaml_file, "r", encoding="utf-8") as file:
                 data = yaml.safe_load(file)
                 if data is None:
@@ -322,7 +326,7 @@ class RoiSelector(ctk.CTk):
 
 
 if __name__ == "__main__":
-    import utils
+    from . import utils
 
     IMG_SCALE = 0.5
     UPDATE_TIMER = 1

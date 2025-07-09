@@ -6,7 +6,7 @@ import json
 import math
 import time
 
-import utils
+from . import utils
 
 
 class Move:  # pylint: disable=too-few-public-methods

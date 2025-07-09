@@ -32,7 +32,7 @@ if conda env list | grep -q "^$ENV_NAME\s"; then
 fi
 
 echo "Creating conda environment..."
-conda env create -f environment.yml
+conda env create -f config/environment.yml
 
 echo "Activating environment..."
 conda activate "$ENV_NAME"

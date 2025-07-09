@@ -11,6 +11,7 @@ import re
 import shutil
 import sys
 import time
+from pathlib import Path
 import tkinter as tk
 from datetime import datetime
 from difflib import get_close_matches
@@ -22,6 +23,10 @@ import pandas as pd
 import requests
 import yaml
 from PIL import Image
+
+# Paths
+BASE_DIR = Path(__file__).resolve().parents[1]
+CONFIG_DIR = BASE_DIR / "config"
 
 # isort: off
 import scrcpy.scrcpy_python_client as scrcpy  # pylint: disable=no-name-in-module,wrong-import-order
@@ -67,7 +72,8 @@ def load_alignment_df(counts=4):
 
 def load_phone_data(device_name):
     """Load saved region-of-interest data for ``device_name``."""
-    with open("phone_roi.yaml", "r", encoding="utf-8") as file:
+    yaml_file = CONFIG_DIR / "phone_roi.yaml"
+    with open(yaml_file, "r", encoding="utf-8") as file:
         data = yaml.safe_load(file)
     if data is None:
         return None
@@ -90,7 +96,8 @@ def get_phone_data(client):
     phone_data = load_phone_data(client.state.device_name)
 
     if phone_data is None:
-        roi_selector_cls = importlib.import_module("roi_ui").RoiSelector
+        from . import roi_ui
+        roi_selector_cls = roi_ui.RoiSelector
 
         app = roi_selector_cls(client)
         app.update_ui(client)

@@ -51,7 +51,7 @@ cd pogo-bot
    On Windows run `setup.bat` instead. The environment installs `ipykernel` for
    notebook support and `pyautogui` for GUI automation used in some example
    notebooks.
-3. In `main.py`, edit the phone variable to add the name of your phone, and
+3. In `src/main.py`, edit the phone variable to add the name of your phone, and
    find the correct `roi_adjust` values that match your phone resolution to put
    the ROI on the correct location as shown in the picture below. This will be
    a trial and error process.
@@ -62,7 +62,7 @@ cd pogo-bot
 5. Run the main script. On first run the app downloads data from PvPoke if the
    files are missing, so it might take a few minutes:
 ```
-python main.py
+python -m src.main
 ```
 6. A UI will show up to set up the correct locations of the ROI if it's a phone
    that was not previously used. Play through a match and take screenshots of the
@@ -81,7 +81,7 @@ python main.py
 # Dockerfile steps (Linux)
 If you would like to run the app using a docker container instead, after installing the docker engine run the following:
 ```
-sudo docker build -t pogo-bot .
+sudo docker build -f docker/Dockerfile -t pogo-bot .
 xhost +local:
 sudo docker run --net="host" -e DISPLAY=unix$DISPLAY pogo-bot
 
@@ -94,5 +94,5 @@ A bit more convoluted, please follow these steps:
 2. **Download Android SDK Platform Tools**: Get them [here](https://developer.android.com/tools/releases/platform-tools) and run `adb start-server` from within the `platform-tools` folder.
 3. **Run the following commands from PowerShell**:
    ```powershell
-   docker-compose up --build
+   docker-compose -f docker/docker-compose.yml up --build
    docker run -it -v /run/desktop/mnt/host/wslg/.X11-unix:/tmp/.X11-unix -v /run/desktop/mnt/host/wslg:/mnt/wslg -e DISPLAY=:0 -e WAYLAND_DISPLAY=wayland-0 -e XDG_RUNTIME_DIR=/mnt/wslg/runtime-dir -e PULSE_SERVER=/mnt/wslg/PulseServer pogo-pvp-assistant-img

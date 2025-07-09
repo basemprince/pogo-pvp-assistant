@@ -3,7 +3,7 @@ services:
   pogo-pvp-assistant:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: docker/Dockerfile
     image: pogo-pvp-assistant-img
     container_name: pogo_pvp-assistant-container
     volumes:
