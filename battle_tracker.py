@@ -452,7 +452,7 @@ class Player:  # pylint: disable=too-many-instance-attributes
 class Match:
     """Represent a Pokémon match."""
 
-    def __init__(self, alignment_count_display: str) -> None:
+    def __init__(self, alignment_count_display: int) -> None:
         """Initialize the match details."""
 
         self.start_time = None

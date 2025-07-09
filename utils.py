@@ -1,6 +1,7 @@
 """Utility functions and helpers for the Poké PvP assistant."""
 
 import csv
+import importlib
 import io
 import json
 import math
@@ -89,9 +90,9 @@ def get_phone_data(client):
     phone_data = load_phone_data(client.state.device_name)
 
     if phone_data is None:
-        from roi_ui import RoiSelector  # pylint: disable=import-outside-toplevel
+        roi_selector_cls = importlib.import_module("roi_ui").RoiSelector
 
-        app = RoiSelector(client)
+        app = roi_selector_cls(client)
         app.update_ui(client)
         app.mainloop()
         phone_data = load_phone_data(client.state.device_name)
