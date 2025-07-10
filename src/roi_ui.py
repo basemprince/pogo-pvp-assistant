@@ -1,6 +1,5 @@
 """User interface for selecting and saving Regions of Interest (ROIs)."""
 
-import os
 import tkinter as tk
 from pathlib import Path
 
@@ -328,7 +327,7 @@ class RoiSelector(ctk.CTk):
 if __name__ == "__main__":
     from . import utils
 
-    IMG_SCALE = 0.5
+    IMG_SCALE = 0.3
     UPDATE_TIMER = 1
     MAIN_CLIENT = utils.connect_to_device("127.0.0.1:5037")
     print(f"Connected to device with resolution: {MAIN_CLIENT.state.resolution}")

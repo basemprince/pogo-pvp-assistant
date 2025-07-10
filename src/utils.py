@@ -1,7 +1,6 @@
 """Utility functions and helpers for the Poké PvP assistant."""
 
 import csv
-import importlib
 import io
 import json
 import math
@@ -11,10 +10,10 @@ import re
 import shutil
 import sys
 import time
-from pathlib import Path
 import tkinter as tk
 from datetime import datetime
 from difflib import get_close_matches
+from pathlib import Path
 from tkinter import messagebox
 
 import cv2
@@ -29,7 +28,9 @@ BASE_DIR = Path(__file__).resolve().parents[1]
 CONFIG_DIR = BASE_DIR / "config"
 
 # isort: off
-import scrcpy.scrcpy_python_client as scrcpy  # pylint: disable=no-name-in-module,wrong-import-order
+# pylint: disable=no-name-in-module,wrong-import-order,wrong-import-position,cyclic-import
+import scrcpy.scrcpy_python_client as scrcpy  # noqa: E402
+from . import roi_ui  # noqa: E402
 
 # isort: on
 
@@ -96,7 +97,7 @@ def get_phone_data(client):
     phone_data = load_phone_data(client.state.device_name)
 
     if phone_data is None:
-        from . import roi_ui
+
         roi_selector_cls = roi_ui.RoiSelector
 
         app = roi_selector_cls(client)
@@ -380,7 +381,7 @@ def download_current_cups():
 def connect_to_device(ip, docker=False):
     """Return a scrcpy client connected to the device."""
     try:
-        config_obj = scrcpy.ClientConfig(ip=ip, docker=docker)
+        config_obj = scrcpy.ClientConfig(ip=ip, docker=docker, max_width=3120)
         client = scrcpy.Client(config_obj)
         return client
     except RuntimeError as e:
@@ -407,7 +408,7 @@ def draw_display_frames(frame, roi_dict, feed_res, roi_color=(0, 0, 0), roi_thic
         )
 
     resized_image = cv2.resize(frame_with_rois, feed_res, interpolation=cv2.INTER_AREA)
-    resized_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
+    # resized_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
     pil_img = Image.fromarray(resized_image)
     return pil_img
 
@@ -508,7 +509,7 @@ class LeagueDetector:
 def count_pokeballs(image):
     """Return the number of Pokéball icons detected in ``image``."""
 
-    image_rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image_rgb = image  # cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
     lower_red = np.array([100, 0, 0])
     upper_red = np.array([255, 50, 50])

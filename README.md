@@ -16,6 +16,11 @@
 * Energy accumulation tracking along with energy deduction when charge moves are thrown (not accurate - needs further work)
 * Saves seen Pokémons to a battle records CSV file
 
+# Demo
+Watch the tool in action:
+[![Pokémon GO PVP Battle Assistant Demo](https://img.youtube.com/vi/w3kOmjLDAyY/0.jpg)](https://www.youtube.com/watch?v=w3kOmjLDAyY)
+
+
 # To-Do
 * <del> Automate finding the ROI location for Pokémon information to make it work with any phone / resolution
 * <del> Add a way for user to specify the league in the UI (currently not able to work with custom leagues)
@@ -42,13 +47,14 @@ NOTE: Only works for Android devices. Connect your phone to your computer and al
 ```
 git clone git@github.com:basemprince/pogo-bot.git
 ```
-2. Navigate to the cloned repository and run the setup script which installs
-   required dependencies and creates the conda environment:
+2. Navigate to the cloned repository and run the setup script located in the
+   `scripts` directory, which installs required dependencies and creates the
+   conda environment:
 ```
 cd pogo-bot
-./setup.sh           # Linux/macOS
+./scripts/setup.sh           # Linux/macOS
 ```
-   On Windows run `setup.bat` instead. The environment installs `ipykernel` for
+   On Windows run `scripts/setup.bat` instead. The environment installs `ipykernel` for
    notebook support and `pyautogui` for GUI automation used in some example
    notebooks.
 3. In `src/main.py`, edit the phone variable to add the name of your phone, and
