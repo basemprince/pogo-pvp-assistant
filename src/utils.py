@@ -746,19 +746,25 @@ class ChargeCircleDetector:
         x2 = min(x + band_width, gray.shape[1])
 
         vertical_band = gray[:, x1:x2]
-        _, thresh = cv2.threshold(vertical_band, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+        _, thresh = cv2.threshold(
+            vertical_band, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+        )
+        thresh = cv2.morphologyEx(
+            thresh, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)
+        )
 
         rows = np.any(thresh > 0, axis=1)
         if not np.any(rows):
             return None, white_removed
-        boundary_row = vertical_band.shape[0] - np.argmax(rows[::-1]) - 1
+        boundary_row = int(np.where(rows)[0][-1])
 
         filled_proportion = (y + r - boundary_row) / (2 * r)
         filled_proportion = max(0.0, min(float(filled_proportion), 3.0))
 
         cv2.circle(white_removed, (x, y), r, (0, 255, 0), 2)
-        cv2.line(white_removed, (0, boundary_row), (image.shape[1], boundary_row), (0, 0, 255), 2)
+        line_start = (max(x - r, 0), boundary_row)
+        line_end = (min(x + r, image.shape[1] - 1), boundary_row)
+        cv2.line(white_removed, line_start, line_end, (0, 0, 255), 2)
 
         return filled_proportion, white_removed
 
