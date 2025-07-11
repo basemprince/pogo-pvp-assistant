@@ -693,7 +693,7 @@ class ChargeCircleDetector:
         return (x, y, r * adjustment_factor)
 
     def detect_charge_circles(self, image):
-        """Detect the charge circle and return the filled energy proportion."""
+        """Return how filled the charge bar is (0-3) and an annotated image."""
         white_removed = self.mask_white_pixels(image, [0, 0, 200], [180, 40, 255])
 
         gray = cv2.cvtColor(white_removed, cv2.COLOR_BGR2GRAY)
@@ -739,22 +739,27 @@ class ChargeCircleDetector:
                 self.stabilized_center = (detected_circle[0], detected_circle[1])
 
         adjusted_circle = self.adjust_detected_circle_radius(detected_circle, 1)
-        boundary_row = self.detect_energy_boundary_in_full_image(white_removed.copy(), adjusted_circle)
-        filled_proportion = self.calculate_filled_proportion(adjusted_circle, boundary_row)
-        cv2.circle(
-            white_removed,
-            (int(adjusted_circle[0]), int(adjusted_circle[1])),
-            int(adjusted_circle[2]),
-            (0, 255, 0),
-            2,
-        )
-        cv2.line(
-            white_removed,
-            (0, boundary_row),
-            (image.shape[1], boundary_row),
-            (0, 0, 255),
-            2,
-        )
+        x, y, r = map(int, adjusted_circle)
+
+        band_width = int(r * 0.6)
+        x1 = max(x - band_width, 0)
+        x2 = min(x + band_width, gray.shape[1])
+
+        vertical_band = gray[:, x1:x2]
+        _, thresh = cv2.threshold(vertical_band, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
+
+        rows = np.any(thresh > 0, axis=1)
+        if not np.any(rows):
+            return None, white_removed
+        boundary_row = vertical_band.shape[0] - np.argmax(rows[::-1]) - 1
+
+        filled_proportion = (y + r - boundary_row) / (2 * r)
+        filled_proportion = max(0.0, min(float(filled_proportion), 3.0))
+
+        cv2.circle(white_removed, (x, y), r, (0, 255, 0), 2)
+        cv2.line(white_removed, (0, boundary_row), (image.shape[1], boundary_row), (0, 0, 255), 2)
+
         return filled_proportion, white_removed
 
 
