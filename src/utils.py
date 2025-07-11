@@ -650,8 +650,11 @@ class ChargeCircleDetector:
     """Detect and track the charging circle during battles."""
 
     def __init__(self):
-        self.center_history = []
-        self.stabilized_center = None
+        self.center_history: list[tuple[float, float]] = []
+        self.radius_history: list[float] = []
+        self.boundary_history: list[int] = []
+        self.stabilized_center: tuple[float, float] | None = None
+        self.stabilized_radius: float | None = None
         self.charge_moves_stored = 0
 
     def mask_white_pixels(self, image, min_white, max_white):
@@ -729,41 +732,55 @@ class ChargeCircleDetector:
             detected_circle[1] += max(self.stabilized_center[1] - roi_size, 0)
 
         self.center_history.append((detected_circle[0], detected_circle[1]))
+        self.radius_history.append(detected_circle[2])
         if len(self.center_history) > 4:
             self.center_history.pop(0)
+            self.radius_history.pop(0)
             if all(
                 abs(self.center_history[i][0] - self.center_history[i + 1][0]) < 10
                 and abs(self.center_history[i][1] - self.center_history[i + 1][1]) < 10
                 for i in range(3)
             ):
                 self.stabilized_center = (detected_circle[0], detected_circle[1])
+            if np.std(self.radius_history) < 5:
+                self.stabilized_radius = float(np.mean(self.radius_history))
+
+        if self.stabilized_radius is not None:
+            detected_circle[2] = self.stabilized_radius
 
         adjusted_circle = self.adjust_detected_circle_radius(detected_circle, 1)
         x, y, r = map(int, adjusted_circle)
 
-        band_width = int(r * 0.6)
-        x1 = max(x - band_width, 0)
-        x2 = min(x + band_width, gray.shape[1])
+        hsv = cv2.cvtColor(white_removed, cv2.COLOR_BGR2HSV)
+        lower_energy = np.array([10, 80, 120], dtype=np.uint8)
+        upper_energy = np.array([40, 255, 255], dtype=np.uint8)
+        color_mask = cv2.inRange(hsv, lower_energy, upper_energy)
 
-        vertical_band = gray[:, x1:x2]
-        _, thresh = cv2.threshold(
-            vertical_band, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
-        )
-        thresh = cv2.morphologyEx(
-            thresh, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8)
-        )
+        circle_mask = self.create_annular_mask(image.shape, adjusted_circle, inner_radius_proportion=0.6)
+        energy_band = cv2.bitwise_and(color_mask, color_mask, mask=circle_mask)
+        energy_band = cv2.morphologyEx(energy_band, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8))
 
-        rows = np.any(thresh > 0, axis=1)
+        rows = np.any(energy_band > 0, axis=1)
         if not np.any(rows):
             return None, white_removed
         boundary_row = int(np.where(rows)[0][-1])
+        self.boundary_history.append(boundary_row)
+        if len(self.boundary_history) > 5:
+            self.boundary_history.pop(0)
+        boundary_row = int(np.mean(self.boundary_history))
 
         filled_proportion = (y + r - boundary_row) / (2 * r)
         filled_proportion = max(0.0, min(float(filled_proportion), 3.0))
 
         cv2.circle(white_removed, (x, y), r, (0, 255, 0), 2)
-        line_start = (max(x - r, 0), boundary_row)
-        line_end = (min(x + r, image.shape[1] - 1), boundary_row)
+
+        y_offset = boundary_row - y
+        try:
+            dx = int(math.sqrt(r**2 - y_offset**2))
+        except ValueError:
+            dx = r
+        line_start = (x - dx, boundary_row)
+        line_end = (x + dx, boundary_row)
         cv2.line(white_removed, line_start, line_end, (0, 0, 255), 2)
 
         return filled_proportion, white_removed
