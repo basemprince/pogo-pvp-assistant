@@ -705,12 +705,21 @@ class ChargeCircleDetector:
         roi_size = 145
         if self.stabilized_center:
             x, y = map(int, self.stabilized_center)
+            x0 = max(x - roi_size, 0)
+            y0 = max(y - roi_size, 0)
             roi = gray[
-                max(y - roi_size, 0) : min(y + roi_size, gray.shape[0]),
-                max(x - roi_size, 0) : min(x + roi_size, gray.shape[1]),
+                y0 : min(y + roi_size, gray.shape[0]),
+                x0 : min(x + roi_size, gray.shape[1]),
             ]
         else:
-            roi = gray
+            h, w = gray.shape[:2]
+            cx, cy = w // 2, h // 2
+            x0 = max(cx - roi_size, 0)
+            y0 = max(cy - roi_size, 0)
+            roi = gray[
+                y0 : min(cy + roi_size, h),
+                x0 : min(cx + roi_size, w),
+            ]
 
         circles = cv2.HoughCircles(
             roi,
@@ -727,9 +736,8 @@ class ChargeCircleDetector:
             return None, None
 
         detected_circle = circles[0, 0]
-        if self.stabilized_center:
-            detected_circle[0] += max(self.stabilized_center[0] - roi_size, 0)
-            detected_circle[1] += max(self.stabilized_center[1] - roi_size, 0)
+        detected_circle[0] += x0
+        detected_circle[1] += y0
 
         self.center_history.append((detected_circle[0], detected_circle[1]))
         self.radius_history.append(detected_circle[2])
