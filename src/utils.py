@@ -23,6 +23,28 @@ import requests
 import yaml
 from PIL import Image
 
+# Colors used for Pokemon typings throughout the application
+TYPING_HEX_COLORS = {
+    "normal": "#a0a29f",
+    "fire": "#fba64c",
+    "water": "#539ddf",
+    "electric": "#f2d94e",
+    "grass": "#60bd58",
+    "ice": "#76d1c1",
+    "fighting": "#d3425f",
+    "poison": "#b763cf",
+    "ground": "#da7c4d",
+    "flying": "#a1bbec",
+    "psychic": "#fa8582",
+    "bug": "#92bd2d",
+    "rock": "#c9bc8a",
+    "ghost": "#5f6dbc",
+    "dragon": "#0c6ac8",
+    "dark": "#595761",
+    "steel": "#5795a3",
+    "fairy": "#ef90e6",
+}
+
 # Paths
 BASE_DIR = Path(__file__).resolve().parents[1]
 CONFIG_DIR = BASE_DIR / "config"
@@ -534,26 +556,7 @@ def hex_to_bgr(hex_color):
 
 def detect_emblems(image, color_range=30, save_images=False):  # pylint: disable=too-many-locals
     """Detect Pokémon type emblems in an image."""
-    hex_colors = {
-        "normal": "#a0a29f",
-        "fire": "#fba64c",
-        "water": "#539ddf",
-        "electric": "#f2d94e",
-        "grass": "#60bd58",
-        "ice": "#76d1c1",
-        "fighting": "#d3425f",
-        "poison": "#b763cf",
-        "ground": "#da7c4d",
-        "flying": "#a1bbec",
-        "psychic": "#fa8582",
-        "bug": "#92bd2d",
-        "rock": "#c9bc8a",
-        "ghost": "#5f6dbc",
-        "dragon": "#0c6ac8",
-        "dark": "#595761",
-        "steel": "#5795a3",
-        "fairy": "#ef90e6",
-    }
+    hex_colors = TYPING_HEX_COLORS
 
     color_ranges = {
         pokemon_type: (
@@ -692,11 +695,31 @@ class ChargeCircleDetector:
         x, y, r = circle
         return (x, y, r * adjustment_factor)
 
+    def color_mask_from_typings(self, image, tolerance=40):
+        """Return a mask for the most prominent typing color."""
+        best_count = 0
+        best_mask = None
+        for hex_color in TYPING_HEX_COLORS.values():
+            bgr = hex_to_bgr(hex_color)
+            lower = np.array([max(0, c - tolerance) for c in bgr], dtype=np.uint8)
+            upper = np.array([min(255, c + tolerance) for c in bgr], dtype=np.uint8)
+            mask = cv2.inRange(image, lower, upper)
+            count = cv2.countNonZero(mask)
+            if count > best_count:
+                best_count = count
+                best_mask = mask
+        return best_mask
+
     def detect_charge_circles(self, image):
         """Detect the charge circle and return the filled energy proportion."""
         white_removed = self.mask_white_pixels(image, [0, 0, 200], [180, 40, 255])
+        color_mask = self.color_mask_from_typings(white_removed)
+        if color_mask is not None:
+            filtered = cv2.bitwise_and(white_removed, white_removed, mask=color_mask)
+        else:
+            filtered = white_removed
 
-        gray = cv2.cvtColor(white_removed, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
         gray = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
 
         roi_size = 145
@@ -739,23 +762,23 @@ class ChargeCircleDetector:
                 self.stabilized_center = (detected_circle[0], detected_circle[1])
 
         adjusted_circle = self.adjust_detected_circle_radius(detected_circle, 1)
-        boundary_row = self.detect_energy_boundary_in_full_image(white_removed.copy(), adjusted_circle)
+        boundary_row = self.detect_energy_boundary_in_full_image(filtered.copy(), adjusted_circle)
         filled_proportion = self.calculate_filled_proportion(adjusted_circle, boundary_row)
         cv2.circle(
-            white_removed,
+            filtered,
             (int(adjusted_circle[0]), int(adjusted_circle[1])),
             int(adjusted_circle[2]),
             (0, 255, 0),
             2,
         )
         cv2.line(
-            white_removed,
+            filtered,
             (0, boundary_row),
             (image.shape[1], boundary_row),
             (0, 0, 255),
             2,
         )
-        return filled_proportion, white_removed
+        return filled_proportion, filtered
 
 
 def record_battle(me, opp, league):
