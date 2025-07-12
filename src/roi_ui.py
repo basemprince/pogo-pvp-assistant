@@ -129,6 +129,85 @@ class DraggableResizableRectangle:
         return self.canvas.coords(self.rect_id)
 
 
+class DraggableResizableCircle(DraggableResizableRectangle):
+    """Perfect circle ROI with draggable and resizable handles (rectangle behavior)."""
+
+    # pylint: disable=too-many-instance-attributes, too-many-positional-arguments
+    # pylint: disable=too-many-arguments, super-init-not-called
+    def __init__(self, canvas, x1, y1, x2, y2, handle_color="blue", handle_size=6):
+        # Replace rectangle with oval
+        self.canvas = canvas
+        self.handle_size = handle_size
+        self.handle_color = handle_color
+        self.start_x = 0
+        self.start_y = 0
+        self.start_rect_coords = [x1, y1, x2, y2]
+
+        self.rect_id = canvas.create_oval(x1, y1, x2, y2, outline=handle_color, width=2)
+        self.handles = {}
+        self.cursors = {
+            "nw": "cross",
+            "n": "sb_v_double_arrow",
+            "ne": "cross",
+            "e": "sb_h_double_arrow",
+            "se": "cross",
+            "s": "sb_v_double_arrow",
+            "sw": "cross",
+            "w": "sb_h_double_arrow",
+        }
+
+        for loc in ("nw", "n", "ne", "e", "se", "s", "sw", "w"):
+            self.handles[loc] = canvas.create_rectangle(0, 0, handle_size, handle_size, fill=handle_color)
+        self.update_handles()
+
+        canvas.tag_bind(self.rect_id, "<Button-1>", self.on_start)
+        canvas.tag_bind(self.rect_id, "<B1-Motion>", self.on_drag)
+        canvas.tag_bind(self.rect_id, "<ButtonRelease-1>", self.on_drop)
+
+        for handle_name, handle_id in self.handles.items():
+            canvas.tag_bind(handle_id, "<Button-1>", self.on_start_resize)
+            canvas.tag_bind(handle_id, "<B1-Motion>", self.on_resize)
+            canvas.tag_bind(handle_id, "<ButtonRelease-1>", self.on_drop)
+            canvas.tag_bind(handle_id, "<Enter>", lambda e, h=handle_name: self.change_cursor(h))
+            canvas.tag_bind(handle_id, "<Leave>", lambda e, h=handle_name: self.reset_cursor(h))
+
+    def on_resize(self, event):
+        """Resize the circle just like the rectangle, but force equal width/height."""
+        dx = event.x - self.start_x
+        dy = event.y - self.start_y
+        rect_coords = list(self.start_rect_coords)
+
+        for handle_name, handle_id in self.handles.items():
+            if self.canvas.find_withtag(tk.CURRENT)[0] == handle_id:
+                if "w" in handle_name:
+                    rect_coords[0] += dx
+                if "n" in handle_name:
+                    rect_coords[1] += dy
+                if "e" in handle_name:
+                    rect_coords[2] += dx
+                if "s" in handle_name:
+                    rect_coords[3] += dy
+
+        # Enforce a square box (for a circle)
+        x1, y1, x2, y2 = rect_coords
+        width = x2 - x1
+        height = y2 - y1
+        size = max(abs(width), abs(height))
+        if width < 0:
+            x1 = x2
+            x2 = x1 - size
+        else:
+            x2 = x1 + size
+        if height < 0:
+            y1 = y2
+            y2 = y1 - size
+        else:
+            y2 = y1 + size
+
+        self.canvas.coords(self.rect_id, x1, y1, x2, y2)
+        self.update_handles()
+
+
 class RoiSelector(ctk.CTk):
     """Application window used to adjust and save ROIs."""
 
@@ -207,7 +286,7 @@ class RoiSelector(ctk.CTk):
         )
 
         starting_loc_charge_mv = [int(w * 0.35), int(h * 0.85), int(w * 0.7), int(h * 0.99)]
-        self.first_charge_mv_rect = DraggableResizableRectangle(
+        self.first_charge_mv_rect = DraggableResizableCircle(
             self.canvas,
             starting_loc_charge_mv[0],
             starting_loc_charge_mv[1],

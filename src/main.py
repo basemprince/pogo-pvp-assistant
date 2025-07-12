@@ -135,6 +135,7 @@ class PokemonBattleAssistant(ctk.CTk):
         self.ui_reset_counter = 10
         self.get_ready_keywords = ["get", "ready"]
         self.attack_incoming_keywords = ["attack", "incoming"]
+        self.pokemon_change = ["Go", "Go,"]
 
         # to push output to UI
         if ui_printout:
@@ -556,7 +557,7 @@ class PokemonBattleAssistant(ctk.CTk):
             pokeballs_roi = roi_images[f"{side}_pokeballs_roi"]
             player = self.player_map[side]
             pokeballs_count, mask = utils.count_pokeballs(pokeballs_roi)
-            self.update_debug_window({f"{side}_pokeballs": mask})
+            # self.update_debug_window({f"{side}_pokeballs": mask})
             if pokeballs_count < player.pokeball_count:
                 print(f"{side.capitalize()}'s Pokemon fainted!")
                 player.pokeball_count = pokeballs_count
@@ -681,7 +682,7 @@ class PokemonBattleAssistant(ctk.CTk):
                 my_info = self.ocr_detect(thresh_my_roi)
                 opp_info = self.ocr_detect(thresh_opp_roi)
 
-                if print_out:
+                if print_out and (my_info or opp_info):
                     print("My Info:", my_info)
                     print("Opponent Info:", opp_info)
 

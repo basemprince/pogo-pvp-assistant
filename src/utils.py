@@ -710,14 +710,29 @@ class ChargeCircleDetector:
                 best_mask = mask
         return best_mask
 
+    def isolate_typing_color(self, image, tolerance=30):
+        """Return an image with only the dominant typing color visible."""
+        best_mask = None
+        best_count = 0
+        for hex_color in TYPING_HEX_COLORS.values():
+            bgr = hex_to_bgr(hex_color)
+            lower = np.array([max(0, c - tolerance) for c in bgr], dtype=np.uint8)
+            upper = np.array([min(255, c + tolerance) for c in bgr], dtype=np.uint8)
+            mask = cv2.inRange(image, lower, upper)
+            count = cv2.countNonZero(mask)
+            if count > best_count:
+                best_count = count
+                best_mask = mask
+
+        if best_mask is not None:
+            result = cv2.bitwise_and(image, image, mask=best_mask)
+            return result
+
+        return np.zeros_like(image)  # black image fallback
+
     def detect_charge_circles(self, image):
         """Detect the charge circle and return the filled energy proportion."""
-        white_removed = self.mask_white_pixels(image, [0, 0, 200], [180, 40, 255])
-        color_mask = self.color_mask_from_typings(white_removed)
-        if color_mask is not None:
-            filtered = cv2.bitwise_and(white_removed, white_removed, mask=color_mask)
-        else:
-            filtered = white_removed
+        filtered = self.isolate_typing_color(image)
 
         gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
         gray = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
