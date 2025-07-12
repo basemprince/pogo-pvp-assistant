@@ -160,7 +160,7 @@ class PokemonBattleAssistant(ctk.CTk):
                     # Rescale the image
                     if isinstance(img, np.ndarray):
                         img = cv2.resize(img, None, fx=scale, fy=scale)
-                        img = Image.fromarray(cv2.cvtColor(img, cv2.COLOR_BGR2RGB))
+                        img = Image.fromarray(img)
                     elif isinstance(img, Image.Image):
                         img = img.resize((int(img.width * scale), int(img.height * scale)))
                     else:

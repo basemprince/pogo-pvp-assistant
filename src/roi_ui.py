@@ -292,7 +292,7 @@ class RoiSelector(ctk.CTk):
             starting_loc_charge_mv[1],
             starting_loc_charge_mv[2],
             starting_loc_charge_mv[3],
-            handle_color="black",
+            handle_color="white",
         )
 
         self.screen = None
@@ -300,32 +300,50 @@ class RoiSelector(ctk.CTk):
         self.tk_img = ImageTk.PhotoImage(Image.new("RGB", self.feed_res))
         self.image_on_canvas = self.canvas.create_image(0, 0, image=self.tk_img, anchor=tk.NW)
 
+    # pylint: disable=too-many-statements
     def save_coords(self):
         """Save ROI coordinates to a YAML file."""
 
         # pylint: disable=too-many-locals
         def get_scaled_coords(rect):
             x1, y1, x2, y2 = rect.get_coords()
+
+            if isinstance(rect, DraggableResizableCircle):
+                # Circle center and radius (in original resolution)
+                cx = (x1 + x2) / 2
+                cy = (y1 + y2) / 2
+                r = abs(x2 - x1) / 2  # radius (equal for circle)
+
+                cx_scaled = int(cx / (self.feed_res[0] / self.original_res[0]))
+                cy_scaled = int(cy / (self.feed_res[1] / self.original_res[1]))
+                r_scaled = int(r / (self.feed_res[0] / self.original_res[0]))  # assumes square pixels
+
+                return {"object_type": "circ", "coords": [cx_scaled, cy_scaled, r_scaled]}
+
+            # Rectangle: [x, y, w, h]
             width = x2 - x1
             height = y2 - y1
-
-            # Offset adjustment
-            x_offset = 0
-            y_offset = 0
-            x1 += x_offset * self.img_scale
-            y1 += y_offset * self.img_scale
 
             roi_coords = []
             for i, coord in enumerate([x1, y1, width, height]):
                 original_coord = int(coord / (self.feed_res[i % 2] / self.original_res[i % 2]))
                 roi_coords.append(original_coord)
 
-            return roi_coords
+            return {"object_type": "rect", "coords": roi_coords}
 
-        def get_mirror_coords(roi_coords):
+        def get_mirror_coords(roi_data):
             phone_width = self.original_res[0]
-            opp_x = phone_width - roi_coords[0] - roi_coords[2]
-            return [opp_x, roi_coords[1], roi_coords[2], roi_coords[3]]
+            object_type = roi_data["object_type"]
+            coords = roi_data["coords"]
+
+            if object_type == "circ":
+                cx, cy, r = coords
+                opp_cx = phone_width - cx
+                return {"object_type": "circ", "coords": [opp_cx, cy, r]}
+
+            x, y, w, h = coords
+            opp_x = phone_width - x - w
+            return {"object_type": "rect", "coords": [opp_x, y, w, h]}
 
         my_roi_coords = get_scaled_coords(self.my_rect)
         msgs_roi_coords = get_scaled_coords(self.msgs_rect)
@@ -338,8 +356,8 @@ class RoiSelector(ctk.CTk):
         opp_roi_coords = get_mirror_coords(my_roi_coords)
         opp_pokeballs_roi_coords = get_mirror_coords(pokeballs_roi_coords)
         opp_typing_roi_coords = get_mirror_coords(typing_roi_coords)
-        opp_typing_roi_coords[0] -= 5
-        opp_typing_roi_coords[1] -= 5
+        opp_typing_roi_coords["coords"][0] -= 5
+        opp_typing_roi_coords["coords"][1] -= 5
 
         second_mv_roi_coords = get_mirror_coords(first_charge_mv_roi_coords)
 

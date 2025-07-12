@@ -46,47 +46,63 @@ Pixel 3 XL:
   - 443
 Pixel 7 Pro:
   first_charge_mv_roi:
-  - 183
-  - 1968
-  - 243
-  - 243
+    coords:
+    - 306
+    - 2089
+    - 123
+    object_type: circ
   msgs_roi:
-  - 173
-  - 677
-  - 720
-  - 100
+    coords:
+    - 176
+    - 687
+    - 713
+    - 93
+    object_type: rect
   my_pokeballs_roi:
-  - 20
-  - 183
-  - 186
-  - 70
+    coords:
+    - 23
+    - 190
+    - 183
+    - 70
+    object_type: rect
   my_roi:
-  - 13
-  - 143
-  - 440
-  - 46
+    coords:
+    - 16
+    - 143
+    - 416
+    - 46
+    object_type: rect
   my_typing_roi:
-  - 10
-  - 76
-  - 123
-  - 70
+    coords:
+    - 20
+    - 76
+    - 120
+    - 70
+    object_type: rect
   opp_pokeballs_roi:
-  - 874
-  - 183
-  - 186
-  - 70
+    coords:
+    - 874
+    - 190
+    - 183
+    - 70
+    object_type: rect
   opp_roi:
-  - 627
-  - 143
-  - 440
-  - 46
+    coords:
+    - 648
+    - 143
+    - 416
+    - 46
+    object_type: rect
   opp_typing_roi:
-  - 942
-  - 71
-  - 123
-  - 70
+    coords:
+    - 935
+    - 71
+    - 120
+    - 70
+    object_type: rect
   second_charge_mv_roi:
-  - 654
-  - 1968
-  - 243
-  - 243
+    coords:
+    - 774
+    - 2089
+    - 123
+    object_type: circ

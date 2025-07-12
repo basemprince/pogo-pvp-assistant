@@ -412,25 +412,70 @@ def connect_to_device(ip, docker=False):
         raise
 
 
+# pylint: disable=too-many-locals
 def get_roi_images(frame, roi_dict):
-    """Crop ``frame`` according to regions of interest."""
+    """Crop `frame` according to ROI specs (rect or circ)."""
     roi_images = {}
+
     for roi_name, roi in roi_dict.items():
-        roi_images[roi_name] = frame[roi[1] : roi[1] + roi[3], roi[0] : roi[0] + roi[2]]
+        roi_type = roi.get("object_type")
+        coords = roi.get("coords")
+
+        if roi_type == "rect":
+            x, y, w, h = coords
+            roi_images[roi_name] = frame[y : y + h, x : x + w]
+
+        elif roi_type == "circ":
+            cx, cy, r = coords
+
+            # Bounding box (clip to frame)
+            x1 = max(cx - r, 0)
+            y1 = max(cy - r, 0)
+            x2 = min(cx + r, frame.shape[1])
+            y2 = min(cy + r, frame.shape[0])
+
+            # Crop image
+            crop = frame[y1:y2, x1:x2]
+            h, w = crop.shape[:2]
+
+            # Mask
+            mask = np.zeros((h, w), dtype=np.uint8)
+            center = (w // 2, h // 2)
+            radius = min(w, h) // 2
+            cv2.circle(mask, center, radius, 255, -1)
+
+            # Apply mask to each channel
+            masked = cv2.bitwise_and(crop, crop, mask=mask)
+
+            roi_images[roi_name] = masked
+
+        else:
+            raise ValueError(f"Unsupported ROI type: {roi_type}")
+
     return roi_images
 
 
+# pylint: disable=too-many-locals
 def draw_display_frames(frame, roi_dict, feed_res, roi_color=(0, 0, 0), roi_thick=12):
-    """Draw ROIs on ``frame`` and return a resized PIL image."""
-    for i, roi in enumerate(roi_dict.values()):
-        if i == 0:
-            frame_with_rois = frame.copy()
-        frame_with_rois = cv2.rectangle(
-            frame_with_rois, (roi[0], roi[1]), (roi[0] + roi[2], roi[1] + roi[3]), roi_color, roi_thick
-        )
+    """Draw ROIs (rect or circ) on `frame` and return a resized PIL image."""
+    frame_with_rois = frame.copy()
+
+    for roi in roi_dict.values():
+        roi_type = roi.get("object_type")
+        coords = roi.get("coords")
+
+        if roi_type == "rect":
+            x, y, w, h = coords
+            cv2.rectangle(frame_with_rois, (x, y), (x + w, y + h), roi_color, roi_thick)
+
+        elif roi_type == "circ":
+            cx, cy, r = coords
+            cv2.circle(frame_with_rois, (cx, cy), r, roi_color, roi_thick)
+
+        else:
+            raise ValueError(f"Unsupported ROI type: {roi_type}")
 
     resized_image = cv2.resize(frame_with_rois, feed_res, interpolation=cv2.INTER_AREA)
-    # resized_image = cv2.cvtColor(resized_image, cv2.COLOR_BGR2RGB)
     pil_img = Image.fromarray(resized_image)
     return pil_img
 
@@ -447,7 +492,7 @@ def closest_name(name, names_list):
 def process_image(img):
     """Return a thresholded version of ``img`` alongside the original."""
     prev_img = img.copy()
-    gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    gray_img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     blur_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
     _, thresh_img = cv2.threshold(blur_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     kernel = np.ones((2, 2), np.uint8)
@@ -531,7 +576,7 @@ class LeagueDetector:
 def count_pokeballs(image):
     """Return the number of Pokéball icons detected in ``image``."""
 
-    image_rgb = image  # cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    image_rgb = image
 
     lower_red = np.array([100, 0, 0])
     upper_red = np.array([255, 50, 50])
@@ -547,11 +592,11 @@ def count_pokeballs(image):
     return len(contours), mask
 
 
-def hex_to_bgr(hex_color):
-    """Convert a hex color string to a BGR tuple."""
+def hex_to_rgb(hex_color):
+    """Convert a hex color string to a rgb tuple."""
     hex_color = hex_color.lstrip("#")
     rgb = tuple(int(hex_color[i : i + 2], 16) for i in (0, 2, 4))
-    return rgb[::-1]
+    return rgb  # [::-1]
 
 
 def detect_emblems(image, color_range=30, save_images=False):  # pylint: disable=too-many-locals
@@ -560,8 +605,8 @@ def detect_emblems(image, color_range=30, save_images=False):  # pylint: disable
 
     color_ranges = {
         pokemon_type: (
-            list(map(lambda x: max(0, x - color_range), hex_to_bgr(color))),
-            list(map(lambda x: min(255, x + color_range), hex_to_bgr(color))),
+            list(map(lambda x: max(0, x - color_range), hex_to_rgb(color))),
+            list(map(lambda x: min(255, x + color_range), hex_to_rgb(color))),
         )
         for pokemon_type, color in hex_colors.items()
     }
@@ -594,7 +639,7 @@ def detect_emblems(image, color_range=30, save_images=False):  # pylint: disable
     circles = cv2.HoughCircles(
         gray, cv2.HOUGH_GRADIENT, dp=1, minDist=25, param1=30, param2=13, minRadius=29, maxRadius=32
     )
-    img_with_circles = cv2.cvtColor(gray.copy(), cv2.COLOR_GRAY2BGR)
+    img_with_circles = cv2.cvtColor(gray.copy(), cv2.COLOR_GRAY2RGB)
     if circles is not None:
         circles = np.uint16(np.around(circles))
         # Sort the circles by their radius, from largest to smallest
@@ -659,7 +704,7 @@ class ChargeCircleDetector:
 
     def mask_white_pixels(self, image, min_white, max_white):
         """Remove white pixels from the image using the given HSV ranges."""
-        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        hsv = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
         lower_white = np.array(min_white, dtype=np.uint8)
         upper_white = np.array(max_white, dtype=np.uint8)
         mask = cv2.inRange(hsv, lower_white, upper_white)
@@ -673,7 +718,7 @@ class ChargeCircleDetector:
 
     def detect_energy_boundary_in_full_image(self, image, circle):
         """Detect the charge boundary row within the full image."""
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
         sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
         abs_sobel_y = np.abs(sobel_y)
         mask = self.create_annular_mask(image.shape, circle, inner_radius_proportion=0.6)
@@ -695,14 +740,14 @@ class ChargeCircleDetector:
         x, y, r = circle
         return (x, y, r * adjustment_factor)
 
-    def color_mask_from_typings(self, image, tolerance=40):
+    def color_mask_from_typings(self, image, tolerance=5):
         """Return a mask for the most prominent typing color."""
         best_count = 0
         best_mask = None
         for hex_color in TYPING_HEX_COLORS.values():
-            bgr = hex_to_bgr(hex_color)
-            lower = np.array([max(0, c - tolerance) for c in bgr], dtype=np.uint8)
-            upper = np.array([min(255, c + tolerance) for c in bgr], dtype=np.uint8)
+            rgb = hex_to_rgb(hex_color)
+            lower = np.array([max(0, c - tolerance) for c in rgb], dtype=np.uint8)
+            upper = np.array([min(255, c + tolerance) for c in rgb], dtype=np.uint8)
             mask = cv2.inRange(image, lower, upper)
             count = cv2.countNonZero(mask)
             if count > best_count:
@@ -715,9 +760,9 @@ class ChargeCircleDetector:
         best_mask = None
         best_count = 0
         for hex_color in TYPING_HEX_COLORS.values():
-            bgr = hex_to_bgr(hex_color)
-            lower = np.array([max(0, c - tolerance) for c in bgr], dtype=np.uint8)
-            upper = np.array([min(255, c + tolerance) for c in bgr], dtype=np.uint8)
+            rgb = hex_to_rgb(hex_color)
+            lower = np.array([max(0, c - tolerance) for c in rgb], dtype=np.uint8)
+            upper = np.array([min(255, c + tolerance) for c in rgb], dtype=np.uint8)
             mask = cv2.inRange(image, lower, upper)
             count = cv2.countNonZero(mask)
             if count > best_count:
@@ -734,7 +779,7 @@ class ChargeCircleDetector:
         """Detect the charge circle and return the filled energy proportion."""
         filtered = self.isolate_typing_color(image)
 
-        gray = cv2.cvtColor(filtered, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(filtered, cv2.COLOR_RGB2GRAY)
         gray = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
 
         roi_size = 145
