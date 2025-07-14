@@ -3,7 +3,6 @@
 import csv
 import io
 import json
-import math
 import os
 import pickle
 import re
@@ -697,10 +696,14 @@ def detect_emblems(image, color_range=30, save_images=False):  # pylint: disable
 class ChargeCircleDetector:
     """Detect and track the charging circle during battles."""
 
-    def __init__(self):
+    def __init__(self, roi_size=125, small_ratio=0.6):
         self.center_history = []
         self.stabilized_center = None
         self.charge_moves_stored = 0
+        self.roi_size = roi_size
+        self.large_radius = roi_size
+        self.small_radius = int(roi_size * small_ratio)
+        self.small_ratio = small_ratio
 
     def mask_white_pixels(self, image, min_white, max_white):
         """Remove white pixels from the image using the given HSV ranges."""
@@ -755,7 +758,7 @@ class ChargeCircleDetector:
                 best_mask = mask
         return best_mask
 
-    def isolate_typing_color(self, image, tolerance=30):
+    def isolate_typing_color(self, image, tolerance=70):
         """Return an image with only the dominant typing color visible."""
         best_mask = None
         best_count = 0
@@ -775,6 +778,29 @@ class ChargeCircleDetector:
 
         return np.zeros_like(image)  # black image fallback
 
+    def match_circle_size(self, image, center):
+        """Look for small circle first, default to large if not found."""
+        gray = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+
+        # Test small circle first
+        small_circle = (center[0], center[1], self.small_radius)
+        small_mask = np.zeros(gray.shape, dtype=np.uint8)
+        cv2.circle(small_mask, (int(center[0]), int(center[1])), self.small_radius, 255, 5)
+
+        # Check if small circle has good edge response
+        edges = cv2.Canny(gray, 30, 100)
+        small_score = np.sum(cv2.bitwise_and(edges, small_mask)) / (2 * np.pi * self.small_radius)
+
+        # If small circle has decent edge response, use it; otherwise use large
+        threshold = 2.0  # Minimum score for small circle
+        if small_score > threshold:
+            print(f"Small circle detected, score: {small_score:.1f}")
+            return (small_circle, "small")
+
+        large_circle = (center[0], center[1], self.large_radius)
+        print(f"Large circle used, small score too low: {small_score:.1f}")
+        return (large_circle, "large")
+
     def detect_charge_circles(self, image):
         """Detect the charge circle and return the filled energy proportion."""
         filtered = self.isolate_typing_color(image)
@@ -782,62 +808,75 @@ class ChargeCircleDetector:
         gray = cv2.cvtColor(filtered, cv2.COLOR_RGB2GRAY)
         gray = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
 
-        roi_size = 145
+        roi_x_offset = roi_y_offset = 0
+
         if self.stabilized_center:
             x, y = map(int, self.stabilized_center)
+            roi_x_offset = max(x - self.roi_size, 0)
+            roi_y_offset = max(y - self.roi_size, 0)
             roi = gray[
-                max(y - roi_size, 0) : min(y + roi_size, gray.shape[0]),
-                max(x - roi_size, 0) : min(x + roi_size, gray.shape[1]),
+                roi_y_offset : min(y + self.roi_size, gray.shape[0]),
+                roi_x_offset : min(x + self.roi_size, gray.shape[1]),
             ]
         else:
             roi = gray
 
+        # Detect any circle first to get center
         circles = cv2.HoughCircles(
             roi,
             cv2.HOUGH_GRADIENT,
             dp=1,
-            minDist=math.inf,
-            param1=30,
-            param2=15,
-            minRadius=90,
-            maxRadius=roi_size,
+            minDist=200,
+            param1=50,
+            param2=25,
+            minRadius=int(self.small_radius * 0.8),
+            maxRadius=int(self.large_radius * 1.2),
         )
 
         if circles is None:
             return None, None
 
         detected_circle = circles[0, 0]
-        if self.stabilized_center:
-            detected_circle[0] += max(self.stabilized_center[0] - roi_size, 0)
-            detected_circle[1] += max(self.stabilized_center[1] - roi_size, 0)
+        detected_circle[0] += roi_x_offset
+        detected_circle[1] += roi_y_offset
 
+        # Smooth center
         self.center_history.append((detected_circle[0], detected_circle[1]))
-        if len(self.center_history) > 4:
+        if len(self.center_history) > 5:
             self.center_history.pop(0)
-            if all(
-                abs(self.center_history[i][0] - self.center_history[i + 1][0]) < 10
-                and abs(self.center_history[i][1] - self.center_history[i + 1][1]) < 10
-                for i in range(3)
-            ):
-                self.stabilized_center = (detected_circle[0], detected_circle[1])
 
-        adjusted_circle = self.adjust_detected_circle_radius(detected_circle, 1)
-        boundary_row = self.detect_energy_boundary_in_full_image(filtered.copy(), adjusted_circle)
-        filled_proportion = self.calculate_filled_proportion(adjusted_circle, boundary_row)
-        cv2.circle(
-            filtered,
-            (int(adjusted_circle[0]), int(adjusted_circle[1])),
-            int(adjusted_circle[2]),
-            (0, 255, 0),
-            2,
-        )
-        cv2.line(
-            filtered,
-            (0, boundary_row),
-            (image.shape[1], boundary_row),
-            (0, 0, 255),
-            2,
-        )
+        avg_x = sum(pos[0] for pos in self.center_history) / len(self.center_history)
+        avg_y = sum(pos[1] for pos in self.center_history) / len(self.center_history)
+        smoothed_center = (avg_x, avg_y)
+
+        if len(self.center_history) >= 3:
+            recent_positions = self.center_history[-3:]
+            max_deviation = max(abs(pos[0] - avg_x) + abs(pos[1] - avg_y) for pos in recent_positions)
+            if max_deviation < 8:
+                self.stabilized_center = smoothed_center
+
+        # Match which circle size fits better
+        matched_circle, circle_type = self.match_circle_size(image, smoothed_center)
+
+        # Detect the energy boundary line within the matched circle
+        boundary_row = self.detect_energy_boundary_in_full_image(filtered.copy(), matched_circle)
+        filled_proportion = self.calculate_filled_proportion(matched_circle, boundary_row)
+
+        # Draw both circles - use RGB colors since image is in RGB format
+        green_rgb = (0, 255, 0)  # Pure green
+        yellow_rgb = (255, 255, 0)  # Yellow (red + green)
+
+        small_color = green_rgb if circle_type == "small" else yellow_rgb
+        large_color = green_rgb if circle_type == "large" else yellow_rgb
+
+        cv2.circle(filtered, (int(smoothed_center[0]), int(smoothed_center[1])), self.small_radius, small_color, 3)
+        cv2.circle(filtered, (int(smoothed_center[0]), int(smoothed_center[1])), self.large_radius, large_color, 3)
+
+        # Draw the boundary line in red (RGB format)
+        cv2.line(filtered, (0, boundary_row), (image.shape[1], boundary_row), (255, 0, 0), 4)
+
+        print(f"Circle: {circle_type}, fill: {filled_proportion:.2f}, boundary: {boundary_row}")
+
         return filled_proportion, filtered
 
 

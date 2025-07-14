@@ -24,3 +24,5 @@ dependencies:
       - matplotlib==3.7.1
       - pygame==2.6.0
       - pre-commit
+      - scikit-learn
+      - scikit-image
