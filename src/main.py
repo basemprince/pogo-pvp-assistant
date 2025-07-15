@@ -155,31 +155,43 @@ class PokemonBattleAssistant(ctk.CTk):
     def update_debug_window(self, roi_images, scale=1):
         if self.debug_window is not None and self.debug_labels is not None:
             # Check if the debug window still exists
-            if self.debug_window.winfo_exists():
-                for name, img in roi_images.items():
-                    # Rescale the image
-                    if isinstance(img, np.ndarray):
-                        img = cv2.resize(img, None, fx=scale, fy=scale)
-                        img = Image.fromarray(img)
-                    elif isinstance(img, Image.Image):
-                        img = img.resize((int(img.width * scale), int(img.height * scale)))
-                    else:
-                        # print(f"Error: ROI '{name}' is not a valid image.")
-                        continue
+            try:
+                if self.debug_window.winfo_exists():
+                    for name, img in roi_images.items():
+                        try:
+                            # Rescale the image with validation
+                            if isinstance(img, np.ndarray):
+                                if img.size == 0 or img.shape[0] == 0 or img.shape[1] == 0:
+                                    continue
+                                img = cv2.resize(img, None, fx=scale, fy=scale)
+                                img = Image.fromarray(img)
+                            elif isinstance(img, Image.Image):
+                                if img.width == 0 or img.height == 0:
+                                    continue
+                                img = img.resize((int(img.width * scale), int(img.height * scale)))
+                            else:
+                                continue
 
-                    tk_img = ImageTk.PhotoImage(img)
+                            tk_img = ImageTk.PhotoImage(img)
 
-                    # If a label for this ROI already exists, update it
-                    if name in self.debug_labels:
-                        self.debug_labels[name].config(image=tk_img)
-                        self.debug_labels[name].image = tk_img  # type: ignore[attr-defined]
-                    else:
-                        label = tk.Label(self.debug_window, image=tk_img)
-                        label.image = tk_img  # type: ignore[attr-defined]  # Keep a reference to the image
-                        label.pack()
-                        self.debug_labels[name] = label
-            else:
-                # If the debug window does not exist, set self.debug_window and self.debug_labels to None
+                            # If a label for this ROI already exists, update it
+                            if name in self.debug_labels:
+                                self.debug_labels[name].config(image=tk_img)
+                                self.debug_labels[name].image = tk_img  # type: ignore[attr-defined]
+                            else:
+                                label = tk.Label(self.debug_window, image=tk_img)
+                                label.image = tk_img  # type: ignore[attr-defined]  # Keep a reference to the image
+                                label.pack()
+                                self.debug_labels[name] = label
+                        except Exception:
+                            # Skip problematic images silently
+                            continue
+                else:
+                    # If the debug window does not exist, set self.debug_window and self.debug_labels to None
+                    self.debug_window = None
+                    self.debug_labels = None
+            except Exception:
+                # Handle any Tkinter errors gracefully
                 self.debug_window = None
                 self.debug_labels = None
 

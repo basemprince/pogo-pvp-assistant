@@ -21,6 +21,7 @@ import pandas as pd
 import requests
 import yaml
 from PIL import Image
+from skimage.color import rgb2lab
 
 # Colors used for Pokemon typings throughout the application
 TYPING_HEX_COLORS = {
@@ -437,11 +438,18 @@ def get_roi_images(frame, roi_dict):
             crop = frame[y1:y2, x1:x2]
             h, w = crop.shape[:2]
 
-            # Mask
-            mask = np.zeros((h, w), dtype=np.uint8)
-            center = (w // 2, h // 2)
-            radius = min(w, h) // 2
-            cv2.circle(mask, center, radius, 255, -1)
+            # Mask with validation
+            if h > 0 and w > 0:
+                mask = np.zeros((h, w), dtype=np.uint8)
+                center = (w // 2, h // 2)
+                radius = min(w, h) // 2
+                if radius > 0:
+                    cv2.circle(mask, center, radius, 255, -1)
+                else:
+                    mask.fill(255)  # If radius is 0, fill entire mask
+            else:
+                # Skip invalid ROI
+                continue
 
             # Apply mask to each channel
             masked = cv2.bitwise_and(crop, crop, mask=mask)
@@ -660,40 +668,43 @@ def detect_emblems(image, color_range=30, save_images=False):  # pylint: disable
 
     # Detect each type of emblem
     type_counts: dict[str, int] = {}
-    for circle in circles[0, :]:
-        # Create an empty mask
-        mask = np.zeros_like(image)
-        mask = cv2.circle(mask, (circle[0], circle[1]), circle[2], (255, 255, 255), -1)
-        masked_image = cv2.bitwise_and(image, mask)
-        # if save_images:
-        #     timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-        #     filename = f'debug/detected_circle_{timestamp}.png'
-        #     try:
-        #         cv2.imwrite(filename, masked_image)
-        #     except Exception as e:
-        #         pass
-
-        for pokemon_type, (lower, upper) in color_ranges.items():
-            temp_mask = cv2.inRange(masked_image, np.array(lower), np.array(upper))
-            pixel_count = np.count_nonzero(temp_mask)
-            type_counts[pokemon_type] = pixel_count + type_counts.get(pokemon_type, 0)
-
+    if circles is not None:
+        for circle in circles[0, :]:
+            # Create an empty mask
+            mask = np.zeros_like(image)
+            mask = cv2.circle(mask, (circle[0], circle[1]), circle[2], (255, 255, 255), -1)
+            masked_image = cv2.bitwise_and(image, mask)
             # if save_images:
-            #     result = cv2.bitwise_and(image, image, mask=temp_mask)
             #     timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
-            #     cv2.imwrite(f'debug/{pokemon_type}_detection_{timestamp}.png', result)
+            #     filename = f'debug/detected_circle_{timestamp}.png'
+            #     try:
+            #         cv2.imwrite(filename, masked_image)
+            #     except Exception as e:
+            #         pass
 
-    sorted_types = [
-        pokemon_type
-        for pokemon_type, pixel_count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[
-            :number_of_emblems
-        ]
-    ]
+            for pokemon_type, (lower, upper) in color_ranges.items():
+                temp_mask = cv2.inRange(masked_image, np.array(lower), np.array(upper))
+                pixel_count = np.count_nonzero(temp_mask)
+                type_counts[pokemon_type] = pixel_count + type_counts.get(pokemon_type, 0)
+
+                # if save_images:
+                #     result = cv2.bitwise_and(image, image, mask=temp_mask)
+                #     timestamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+                #     cv2.imwrite(f'debug/{pokemon_type}_detection_{timestamp}.png', result)
+
+            sorted_types = [
+                pokemon_type
+                for pokemon_type, pixel_count in sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[
+                    :number_of_emblems
+                ]
+            ]
+    else:
+        sorted_types = []
 
     return sorted(sorted_types), img_with_circles
 
 
-class ChargeCircleDetector:
+class ChargeCircleDetector:  # pylint: disable=too-many-instance-attributes
     """Detect and track the charging circle during battles."""
 
     def __init__(self, roi_size=125, small_ratio=0.6):
@@ -704,6 +715,8 @@ class ChargeCircleDetector:
         self.large_radius = roi_size
         self.small_radius = int(roi_size * small_ratio)
         self.small_ratio = small_ratio
+        self.boundary_history = []
+        self.last_boundary = None
 
     def mask_white_pixels(self, image, min_white, max_white):
         """Remove white pixels from the image using the given HSV ranges."""
@@ -738,45 +751,55 @@ class ChargeCircleDetector:
         cv2.circle(mask, center, inner_radius, (0), -1)
         return mask
 
-    def adjust_detected_circle_radius(self, circle, adjustment_factor=0.9):
-        """Shrink or enlarge the detected circle radius."""
-        x, y, r = circle
-        return (x, y, r * adjustment_factor)
+    def isolate_typing_color(self, image, tolerance=25):
+        """Return an image with only the dominant typing color visible using LAB color space."""
+        # Convert to LAB color space
+        lab_image = rgb2lab(image / 255.0)
 
-    def color_mask_from_typings(self, image, tolerance=5):
-        """Return a mask for the most prominent typing color."""
+        # Create annular mask for small circle area
+        center = (image.shape[1] // 2, image.shape[0] // 2)
+        annular_mask = np.zeros(image.shape[:2], dtype=np.uint8)
+        cv2.circle(annular_mask, center, self.small_radius, 255, -1)
+
+        # Create black/white pixel masks in LAB space
+        l_channel = lab_image[:, :, 0]
+        black_mask = (l_channel > 15).astype(np.uint8) * 255  # Exclude very dark (L < 15)
+        white_mask = (l_channel < 85).astype(np.uint8) * 255  # Exclude very bright (L > 85)
+
+        # Combine all masks
+        combined_mask = cv2.bitwise_and(cv2.bitwise_and(annular_mask, black_mask), white_mask)
+
+        # Convert typing colors to LAB
+        typing_lab_colors = {}
+        for type_name, hex_color in TYPING_HEX_COLORS.items():
+            rgb = np.array(hex_to_rgb(hex_color)).reshape(1, 1, 3) / 255.0  # pylint: disable=too-many-function-args
+            lab = rgb2lab(rgb)[0, 0]
+            typing_lab_colors[type_name] = lab
+
+        # Sample pixels within mask
+        mask_indices = np.where(combined_mask > 0)
+        if len(mask_indices[0]) == 0:
+            print("Detected move type: no_pixels")
+            return image
+
+        sampled_lab = lab_image[mask_indices]
+
+        # Find closest LAB color
+        best_type = "unknown"
         best_count = 0
-        best_mask = None
-        for hex_color in TYPING_HEX_COLORS.values():
-            rgb = hex_to_rgb(hex_color)
-            lower = np.array([max(0, c - tolerance) for c in rgb], dtype=np.uint8)
-            upper = np.array([min(255, c + tolerance) for c in rgb], dtype=np.uint8)
-            mask = cv2.inRange(image, lower, upper)
-            count = cv2.countNonZero(mask)
-            if count > best_count:
-                best_count = count
-                best_mask = mask
-        return best_mask
 
-    def isolate_typing_color(self, image, tolerance=70):
-        """Return an image with only the dominant typing color visible."""
-        best_mask = None
-        best_count = 0
-        for hex_color in TYPING_HEX_COLORS.values():
-            rgb = hex_to_rgb(hex_color)
-            lower = np.array([max(0, c - tolerance) for c in rgb], dtype=np.uint8)
-            upper = np.array([min(255, c + tolerance) for c in rgb], dtype=np.uint8)
-            mask = cv2.inRange(image, lower, upper)
-            count = cv2.countNonZero(mask)
-            if count > best_count:
-                best_count = count
-                best_mask = mask
+        for type_name, target_lab in typing_lab_colors.items():
+            distances = np.linalg.norm(sampled_lab - target_lab, axis=1)
+            close_pixels = np.sum(distances < tolerance)
 
-        if best_mask is not None:
-            result = cv2.bitwise_and(image, image, mask=best_mask)
-            return result
+            if close_pixels > best_count:
+                best_count = close_pixels
+                best_type = type_name
 
-        return np.zeros_like(image)  # black image fallback
+        print(f"Detected move type: {best_type}")
+
+        # Return original image to keep circle detection working
+        return image
 
     def match_circle_size(self, image, center):
         """Look for small circle first, default to large if not found."""
@@ -859,7 +882,21 @@ class ChargeCircleDetector:
         matched_circle, circle_type = self.match_circle_size(image, smoothed_center)
 
         # Detect the energy boundary line within the matched circle
-        boundary_row = self.detect_energy_boundary_in_full_image(filtered.copy(), matched_circle)
+        raw_boundary = self.detect_energy_boundary_in_full_image(filtered.copy(), matched_circle)
+
+        # Stabilize boundary line
+        self.boundary_history.append(raw_boundary)
+        if len(self.boundary_history) > 5:
+            self.boundary_history.pop(0)
+
+        if self.last_boundary is None:
+            boundary_row = raw_boundary
+        else:
+            # Use smoothed boundary
+            smoothed_boundary = sum(self.boundary_history) / len(self.boundary_history)
+            boundary_row = int(smoothed_boundary)
+
+        self.last_boundary = boundary_row
         filled_proportion = self.calculate_filled_proportion(matched_circle, boundary_row)
 
         # Draw both circles - use RGB colors since image is in RGB format
